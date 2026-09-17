@@ -17,4 +17,3 @@
 已创建私有仓库 https://github.com/amateurish-programmer/boomerang 。GitHub CLI 可管理仓库；Codespaces API 返回 403，缺少 codespace scope。Supabase/百炼独立项目配置尚未确认。
 
 独立 Supabase 已创建：boomerang，Singapore，skeghmapzrmahxehazlp。P0 SQL隔离37项断言通过，OpenAPI16操作引用校验通过。Git HTTPS网络超时，改经GitHub API上传原始签名Git对象，哈希一致。签名公钥未登记GitHub，平台显示unknown_key，不能称Verified。
-
