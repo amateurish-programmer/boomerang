@@ -1,24 +1,11 @@
 package com.boomerang.app.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -26,98 +13,94 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.boomerang.app.R
+import com.boomerang.app.data.RecordEntity
+import com.boomerang.app.domain.*
 
 @Composable
-private fun Page(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
+internal fun Page(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp), content = content)
+        verticalArrangement = Arrangement.spacedBy(16.dp), content = content)
 }
-
 @Composable
-private fun Heading(title: String, description: String) {
+internal fun Heading(title: String, description: String) {
     Text(title, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
     Text(description, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
-
 @Composable
 private fun NewRecordButton(onCreate: () -> Unit) {
     Button(onClick = onCreate, modifier = Modifier.testTag("create_record")) { Text("新建记录") }
 }
-
 @Composable
-fun HomeScreen(onCreate: () -> Unit, modifier: Modifier = Modifier) = Page(modifier) {
-    Heading("回旋镖", "记下原话，留待时间验证。")
-    Spacer(Modifier.height(12.dp))
-    Icon(painterResource(R.drawable.ic_boomerang), contentDescription = null,
-        modifier = Modifier.size(104.dp), tint = MaterialTheme.colorScheme.primary)
-    Text("待回响", style = MaterialTheme.typography.headlineMedium)
-    Text("还没有待跟进的记录", style = MaterialTheme.typography.titleMedium)
-    Text("从一句承诺、一个目标或一次预测开始。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-    NewRecordButton(onCreate)
+internal fun Choice(label: String, value: String, choices: Map<String, String>, onChange: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton(onClick = { expanded = true }) { Text("$label：${choices[value] ?: value}") }
+        DropdownMenu(expanded, { expanded = false }) {
+            choices.forEach { (key, title) -> DropdownMenuItem(text = { Text(title) }, onClick = { onChange(key); expanded = false }) }
+        }
+    }
+}
+@Composable
+private fun LoadingOrError(state: LibraryState, onRetry: () -> Unit) {
+    if (state.loading) { CircularProgressIndicator(); Text("正在读取本机记录…") }
+    state.error?.let { Text(it, color = MaterialTheme.colorScheme.error); TextButton(onClick = onRetry) { Text("重试") } }
+}
+@Composable
+private fun RecordRow(record: RecordEntity, countdown: String, onOpen: (String) -> Unit) {
+    Column(Modifier.fillMaxWidth().clickable { onOpen(record.id) }.padding(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("${recordTypes[record.content.recordType]} · ${record.content.subject}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Text(record.content.originalText, style = MaterialTheme.typography.titleMedium, maxLines = 3)
+        Text(countdown, style = MaterialTheme.typography.bodyMedium)
+    }
     HorizontalDivider()
-    Text("原话与证据分别保留，最终结果由你确认。", style = MaterialTheme.typography.bodyMedium)
 }
-
 @Composable
-fun LibraryScreen(onCreate: () -> Unit, onDetail: () -> Unit, modifier: Modifier = Modifier) = Page(modifier) {
-    Heading("你的镖库", "每一次回看，都有迹可循。")
-    Spacer(Modifier.height(32.dp))
-    Text("这里还没有记录", style = MaterialTheme.typography.headlineSmall)
-    Text("保存后的原话、期限和验证标准会放在这里。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+fun HomeScreen(state: LibraryState, countdown: (RecordEntity) -> String, onCreate: () -> Unit, onOpen: (String) -> Unit, onRetry: () -> Unit, modifier: Modifier = Modifier) = Page(modifier) {
+    Heading("回旋镖", "记下原话，留待时间验证。")
     NewRecordButton(onCreate)
-    TextButton(onClick = onDetail) { Text("了解记录详情") }
+    LoadingOrError(state, onRetry)
+    if (!state.loading && state.error == null) {
+        val pending = state.records.filter { it.content.lifecycle == "ACTIVE" && it.content.confirmedStatus == null && it.content.dueEnd != null }
+        Text("待回响", style = MaterialTheme.typography.headlineMedium)
+        if (pending.isEmpty()) {
+            Icon(painterResource(R.drawable.ic_boomerang), null, Modifier.size(88.dp), tint = MaterialTheme.colorScheme.primary)
+            Text("还没有待跟进的期限", style = MaterialTheme.typography.titleMedium)
+            Text("无期限的记录可在镖库查看。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else pending.take(10).forEach { RecordRow(it, countdown(it), onOpen) }
+    }
 }
-
+@Composable
+fun LibraryScreen(state: LibraryState, visible: List<RecordEntity>, query: String, type: String, result: String, sort: String,
+    onQuery: (String) -> Unit, onType: (String) -> Unit, onResult: (String) -> Unit, onSort: (String) -> Unit,
+    countdown: (RecordEntity) -> String, onCreate: () -> Unit, onOpen: (String) -> Unit, onRetry: () -> Unit, modifier: Modifier = Modifier) = Page(modifier) {
+    Heading("你的镖库", "原话、证据与修改历史，都留在这里。")
+    NewRecordButton(onCreate)
+    OutlinedTextField(query, onQuery, label = { Text("搜索原话、人物、主题或备注") }, modifier = Modifier.fillMaxWidth().testTag("search"), singleLine = true)
+    Choice("类型", type, mapOf("" to "全部") + recordTypes, onType)
+    Choice("结果", result, mapOf("" to "全部", "UNCONFIRMED" to "未确认") + resultStatuses, onResult)
+    Choice("排序", sort, mapOf("due" to "截止日期优先", "updated" to "最近修改优先"), onSort)
+    LoadingOrError(state, onRetry)
+    if (!state.loading && state.error == null) {
+        if (visible.isEmpty()) Text(if (state.records.isEmpty()) "这里还没有记录" else "没有符合条件的记录", style = MaterialTheme.typography.titleMedium)
+        else visible.forEach { RecordRow(it, countdown(it), onOpen) }
+    }
+}
 @Composable
 fun AiScreen(modifier: Modifier = Modifier) = Page(modifier) {
     Heading("AI 助手", "帮你整理原话，寻找可追溯的证据。")
-    HorizontalDivider()
-    Text("尚未启用", style = MaterialTheme.typography.titleLarge)
-    Text("智能录入与联网调查正在准备中。启用后，AI 建议会先交给你检查，确认后才会进入镖库。")
+    HorizontalDivider(); Text("尚未启用", style = MaterialTheme.typography.titleLarge)
+    Text("智能录入与联网调查正在准备中。AI 建议会先交给你检查，确认后才会进入镖库。")
     Text("当前不会上传内容，也不会发起 AI 请求。", color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
-
 @Composable
 fun ProfileScreen(modifier: Modifier = Modifier) = Page(modifier) {
-    Heading("我的空间", "回旋镖 · 0.1.0")
-    HorizontalDivider()
-    Text("当前未登录", style = MaterialTheme.typography.titleLarge)
-    Text("账号登录与云端同步尚未启用。")
-    HorizontalDivider()
-    Text("关于记录", style = MaterialTheme.typography.titleMedium)
-    Text("原话、来源证据、AI 建议和你的确认会分别保存。你的记录默认私有。")
-    Text("当前为基础预览版，记录保存将在后续版本启用。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Heading("我的空间", "回旋镖 · 0.2.0")
+    HorizontalDivider(); Text("本机空间", style = MaterialTheme.typography.titleLarge)
+    Text("记录保存在当前设备，暂未登录或同步。卸载应用会移除本机数据。")
+    HorizontalDivider(); Text("关于记录", style = MaterialTheme.typography.titleMedium)
+    Text("原话、来源证据、AI 建议和你的确认分别保留。你的记录默认私有。")
 }
-
-@Composable
-fun RecordEditor(quote: String, onQuote: (String) -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) = Page(modifier) {
-    TextButton(onClick = onBack, modifier = Modifier.testTag("back")) { Text("返回") }
-    Heading("新建记录", "先记下当时说过的话。")
-    OutlinedTextField(value = quote, onValueChange = onQuote,
-        modifier = Modifier.fillMaxWidth().testTag("quote_input"),
-        label = { Text("原话") }, placeholder = { Text("例如：今年读完十二本书") },
-        minLines = 5, supportingText = { Text("${quote.length} / 4000") })
-    Text("保存尚未启用。返回或旋转屏幕后可继续编辑；关闭应用前，请自行保留文字。",
-        color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Button(onClick = {}, enabled = false) { Text("保存记录（尚未启用）") }
-}
-
-@Composable
-fun DetailShell(onBack: () -> Unit, modifier: Modifier = Modifier) = Page(modifier) {
-    TextButton(onClick = onBack, modifier = Modifier.testTag("back")) { Text("返回") }
-    Heading("记录详情", "结构预览 · 这里没有真实记录")
-    listOf("原话" to "保留最初的表达", "日期与期限" to "明确的日期才会用于倒计时", "验证标准" to "记录什么情况算达成", "来源与修订" to "保留证据及修改历史").forEach { (title, description) ->
-        HorizontalDivider()
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
 @Preview(showBackground = true, name = "首页 · 明亮")
-@Composable private fun HomePreview() { BoomerangTheme(false) { HomeScreen({}) } }
-
+@Composable private fun HomePreview() { BoomerangTheme(false) { HomeScreen(LibraryState(false), { "未设期限" }, {}, {}, {}) } }
 @Preview(showBackground = true, name = "首页 · 深色")
-@Composable private fun DarkHomePreview() { BoomerangTheme(true) { HomeScreen({}) } }
-
-@Preview(showBackground = true, name = "编辑 · 演示文字")
-@Composable private fun EditorPreview() { BoomerangTheme { RecordEditor("演示：今年读完十二本书", {}, {}) } }
+@Composable private fun DarkHomePreview() { BoomerangTheme(true) { HomeScreen(LibraryState(false), { "未设期限" }, {}, {}, {}) } }

@@ -6,6 +6,9 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.assertTextEquals
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
@@ -38,5 +41,21 @@ class ShellNavigationTest {
         compose.onNodeWithTag("nav_AI").performClick()
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("AI 助手").assertIsDisplayed()
+    }
+
+    @Test fun offlineCreateEditAndDelete() {
+        compose.onNodeWithTag("create_record").performClick()
+        compose.onNodeWithTag("quote_input").performTextInput("离线闭环 ${System.nanoTime()}")
+        compose.onNodeWithTag("save_record").performScrollTo().performClick()
+        compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("detail_original")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("edit_record").performClick()
+        compose.onNodeWithTag("quote_input").performTextClearance()
+        compose.onNodeWithTag("quote_input").performTextInput("修改后的离线原话")
+        compose.onNodeWithTag("save_record").performScrollTo().performClick()
+        compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("detail_original")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("detail_original").assertTextEquals("修改后的离线原话")
+        compose.onNodeWithTag("delete_record").performScrollTo().performClick()
+        compose.onNodeWithTag("confirm_delete").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("search")).fetchSemanticsNodes().isNotEmpty() }
     }
 }

@@ -23,7 +23,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun BoomerangApp(model: ShellViewModel = viewModel()) {
     val selected by model.destination.collectAsStateWithLifecycle()
     val screen by model.screen.collectAsStateWithLifecycle()
-    val quote by model.quote.collectAsStateWithLifecycle()
+    val editor by model.editor.collectAsStateWithLifecycle()
+    val library by model.library.collectAsStateWithLifecycle()
+    val detail by model.detail.collectAsStateWithLifecycle()
+    val errors by model.errors.collectAsStateWithLifecycle()
+    val busy by model.busy.collectAsStateWithLifecycle()
+    val message by model.message.collectAsStateWithLifecycle()
+    val query by model.query.collectAsStateWithLifecycle()
+    val type by model.typeFilter.collectAsStateWithLifecycle()
+    val result by model.resultFilter.collectAsStateWithLifecycle()
+    val sort by model.sort.collectAsStateWithLifecycle()
     BackHandler(enabled = screen != "main") { model.back() }
     Scaffold(bottomBar = {
         if (screen == "main") NavigationBar {
@@ -46,11 +55,12 @@ fun BoomerangApp(model: ShellViewModel = viewModel()) {
     }) { padding ->
         val modifier = Modifier.padding(padding)
         when (screen) {
-            "editor" -> RecordEditor(quote, model::editQuote, model::back, modifier)
-            "detail" -> DetailShell(model::back, modifier)
+            "editor" -> RecordEditor(editor, errors, busy, message, model::updateContent, model::updateSources, model::save, model::back, modifier)
+            "detail" -> RecordDetailScreen(detail, detail?.record?.let(model::countdown).orEmpty(), model.history(detail), busy, message, model::editCurrent, model::deleteCurrent, model::back, modifier)
             else -> when (Destination.valueOf(selected)) {
-                Destination.HOME -> HomeScreen(model::openEditor, modifier)
-                Destination.LIBRARY -> LibraryScreen(model::openEditor, model::openDetail, modifier)
+                Destination.HOME -> HomeScreen(library, model::countdown, model::openEditor, model::openDetail, model::retry, modifier)
+                Destination.LIBRARY -> LibraryScreen(library, model.filtered(library.records, query, type, result, sort), query, type, result, sort,
+                    model::setQuery, model::setType, model::setResult, model::setSort, model::countdown, model::openEditor, model::openDetail, model::retry, modifier)
                 Destination.AI -> AiScreen(modifier)
                 Destination.PROFILE -> ProfileScreen(modifier)
             }
