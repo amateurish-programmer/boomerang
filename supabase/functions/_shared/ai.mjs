@@ -1,7 +1,10 @@
 import { ApiError, analyzeOutput, chatOutput, limitedJson, requestInput, uuid } from './schemas.mjs';
 import { QwenProvider } from './providers.mjs';
+import { researchRoute } from './research.mjs';
 const headers={'content-type':'application/json; charset=utf-8','cache-control':'no-store'};
 export async function handleRequest(request, {env, fetch:fetcher=fetch, now=()=>new Date()} ) {
+  const research=await researchRoute(request,{env,fetch:fetcher});
+  if(research) return research;
   const requestId=crypto.randomUUID();
   // A single budget covers authentication, quota, provider body streaming and persistence.
   const signal=AbortSignal.timeout(45000);

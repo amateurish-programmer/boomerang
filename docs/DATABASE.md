@@ -1,10 +1,14 @@
 # 数据库契约
 
-结构唯一来源为 `supabase/migrations/202609170001_initial.sql`。采用 PostgreSQL 17；Supabase 提供 `auth.users`、`auth.uid()` 及 authenticated/service_role。测试 bootstrap 仅用于一次性隔离库。
+结构唯一来源为按名称排序的 `supabase/migrations/*.sql`：001 基线、002 研究队列、003 来源同步。采用 PostgreSQL 17；Supabase 提供 `auth.users`、`auth.uid()` 及 authenticated/service_role。测试 bootstrap 仅用于一次性隔离库。
 
-客户端具有业务表 SELECT 权限和 owner RLS，通过三个 SECURITY DEFINER RPC 写记录，另有通知已读 RPC。RPC 不接受 owner 参数，固定 search_path，从 auth.uid() 取用户。service_role 仅获研究、证据、报告写权限与队列 RPC，不可直接更新 records 或执行用户确认 RPC。service_role 凭据不得进入客户端。迁移管理员是受信任系统管理员，不是运行时 AI 身份。
+客户端具有业务表 SELECT 权限和 owner RLS，通过 SECURITY DEFINER RPC 写记录，另有通知已读 RPC。用户 RPC 不接受 owner 参数，固定 search_path，从 auth.uid() 取用户。002 撤销 service_role 对来源、候选和报告的直接 INSERT，证据仅由租约事务 RPC 保存；不可直接更新 records 或执行用户确认 RPC。service_role 凭据不得进入客户端。迁移管理员是受信任系统管理员，不是运行时 AI 身份。
 
 ## RPC
+
+- `sync_record(p_record jsonb,p_sources jsonb,p_expected_revision bigint,p_operation_id uuid) returns jsonb`：P3 同步首选入口，返回 records 行；`p_record` 使用 upsert_record 的字段，`p_sources` 为至多 10 个 `{id: UUID,title: string(1..500),url: HTTPS URL}`，拒绝其余字段。owner、origin、verified_by_tool 等信任字段只由服务端赋值。记录、来源、来源历史和幂等响应同事务；一次同步只生成一条记录修订，任一步失败全量回滚。同操作键要求完整 record/sources/expected 请求一致。
+
+  来源内容同 UUID 不可改，改标题或 URL 须生成新 UUID。仅 `origin=CLIENT` 且未被工具核实的手动来源参与传入列表对齐，遗漏者填写 `archived_at`，相同内容重新加入可恢复。SERVER/工具证据始终保留；已被报告引用的手动来源不得移除（PT409）。客户端显示活动来源用 archived_at IS NULL，报告仍可读取归档证据。每次 sync_record 的活动来源完整快照保存于只读、不可改删的 `record_source_revisions`，按 owner/record/revision 关联原修订；不会改写 001 中的历史快照。此前或通过 upsert_record/confirm_check 产生的修订没有来源成员快照，不能由缺失快照推断当时没有来源。
 
 - `upsert_record(p_record jsonb,p_expected_revision bigint,p_operation_id uuid) returns jsonb`：完整记录快照，首次 expected_revision=0，后续为当前 revision；返回 records 行。只接收用户可编辑字段，拒绝 confirmed_status 等确认审计字段。operation_id 同用户全局唯一，同一操作同一请求重放返回原响应；不同请求复用键拒绝。
 - `confirm_check(p_check_id uuid,p_expected_revision bigint,p_status text,p_reason text) returns jsonb`：要求报告 record_revision 和当前 record revision 都等于 expected_revision；保存用户确认、报告引用和理由，产生新修订。该动作不是 AI 写接口。
@@ -31,11 +35,13 @@ URL 数据库校验是防御补充，只允许带域名的 HTTPS，排除 localh
 
 ```sh
 psql -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap.sql
-psql -v ON_ERROR_STOP=1 -f supabase/migrations/202609170001_initial.sql
-psql -v ON_ERROR_STOP=1 -f supabase/tests/behavior_test.sql
+for migration in supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -f "$migration"; done
+for test in supabase/tests/*_test.sql; do psql -v ON_ERROR_STOP=1 -f "$test"; done
 ```
 
 测试用固定虚构 UUID，事务结束回滚业务数据。bootstrap 不适用于真实 Supabase。SQL 测试验证隔离数据库权限和行为，不代表线上部署、真实 JWT、供应商、Cron 或真机验收完成。
+
+研究行为测试另执行 `node --test scripts/test-ai.mjs scripts/test-research.mjs`。本机设置 `RESEARCH_SQL_CONTAINER=boomerang-sql-test`，或 CI 设置 `RESEARCH_SQL_URL` 指向 localhost 的一次性 PostgreSQL 管理连接。必须先用 bootstrap 建立测试角色；各研究套件自动新建独立数据库、执行所有迁移并在结束后删除。连接凭据仅通过环境变量交给 psql。未设置任一 SQL 环境变量时，SQL 套件明确 skip，不可据此宣称数据库验收通过。
 
 2026-09-17 已在一次性 Docker `postgres:17` 中执行：先运行测试，因 `upsert_record` 不存在而失败；实现迁移后，在新的空数据库重新执行迁移及行为测试，退出码均为 0，输出 `Database behavioral assertions passed`。覆盖 37 项业务/权限断言（包括异常拒绝路径），涵盖双用户、不可变历史、修订/幂等、用户确认、语义修改清除旧确认、截止日、胶囊、候选、配额及三次租约重试。并行 worker 真实并发压力测试、线上 Supabase/JWT 和 Cron 验收仍属于后续阶段。
 

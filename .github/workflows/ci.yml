@@ -41,6 +41,10 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap.sql
           for migration in supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -f "$migration"; done
           for test in supabase/tests/*_test.sql; do psql -v ON_ERROR_STOP=1 -f "$test"; done
+      - name: Test research and leased jobs against isolated PostgreSQL
+        env:
+          RESEARCH_SQL_URL: postgresql://postgres:isolated-ci-only@localhost:5432/postgres
+        run: node --test scripts/test-research.mjs
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 30

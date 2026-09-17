@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "回旋镖 API",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Target contract. Implemented/deployed stages are tracked separately in docs/PROGRESS.md. PostgREST errors use native {code,message,details,hint}, Edge errors use Error schema."
   },
   "servers": [
@@ -1577,6 +1577,230 @@
           }
         }
       }
+    },
+    "/rest/v1/rpc/sync_record": {
+      "post": {
+        "operationId": "syncRecord",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Record"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service not configured or temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "p_record": {
+                    "$ref": "#/components/schemas/RecordInput"
+                  },
+                  "p_expected_revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "p_operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "p_sources": {
+                    "type": "array",
+                    "maxItems": 10,
+                    "items": {
+                      "$ref": "#/components/schemas/ManualSourceInput"
+                    }
+                  }
+                },
+                "required": [
+                  "p_record",
+                  "p_expected_revision",
+                  "p_operation_id",
+                  "p_sources"
+                ]
+              }
+            }
+          }
+        },
+        "description": "Atomically sync a record and its manual source membership. Sources are immutable by UUID; removal archives only unreferenced CLIENT sources. SERVER and tool evidence are retained. Identical operation_id retries return the original response."
+      }
+    },
+    "/rest/v1/record_source_revisions": {
+      "get": {
+        "operationId": "list_record_source_revisions",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecordSourceRevision"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service not configured or temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          }
+        },
+        "description": "Owner-isolated immutable source snapshots created by sync_record. Missing rows for revisions from other RPCs do not imply an empty source list.",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "PostgREST eq.UUID filter"
+          },
+          {
+            "name": "revision",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "PostgREST eq.revision filter"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 100
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -1969,6 +2193,20 @@
           },
           "verified_by_tool": {
             "type": "boolean"
+          },
+          "archived_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "SERVER",
+              "CLIENT"
+            ]
           }
         },
         "required": [
@@ -2122,6 +2360,63 @@
         "required": [
           "code",
           "message"
+        ]
+      },
+      "ManualSourceInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048,
+            "pattern": "^https://",
+            "description": "Public HTTPS domain URL; localhost, private literal IPs and internal suffixes rejected."
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "url"
+        ]
+      },
+      "RecordSourceRevision": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "owner_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "snapshot": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            }
+          }
+        },
+        "required": [
+          "owner_id",
+          "record_id",
+          "revision",
+          "snapshot"
         ]
       }
     }

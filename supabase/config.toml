@@ -24,3 +24,7 @@ enable_confirmations = true
 # The handler validates every user JWT against Auth before using any service credential.
 # Explicit validation also supports projects using asymmetric signing keys.
 verify_jwt = false
+
+[functions.worker]
+# Dedicated worker bearer secret is checked inside the handler.
+verify_jwt = false
