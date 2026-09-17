@@ -18,7 +18,7 @@ import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class ReminderColdStartTest {
     @get:Rule val compose = createEmptyComposeRule()
-    @Test fun coldNotificationClickWaitsForAccountRestoreAndOpensRecord() = runBlocking {
+    @Test fun coldNotificationClickWaitsForAccountRestoreAndOpensRecord(): Unit = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = BoomerangDatabase.open(context)
         val repository = BoomerangRepository(db)
@@ -32,7 +32,7 @@ class ReminderColdStartTest {
             }
         } finally { repository.detail(id)?.let { repository.softDelete(id, it.record.localRevision) }; db.close() }
     }
-    @Test fun coldNotificationForDifferentAccountDoesNotOpenLocalRecord() = runBlocking {
+    @Test fun coldNotificationForDifferentAccountDoesNotOpenLocalRecord(): Unit = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val intent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             .putExtra(ReminderScheduler.OWNER, UUID.randomUUID().toString())

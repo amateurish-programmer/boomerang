@@ -15,3 +15,7 @@ Room v2 增加持久化冲突、胶囊字段与来源 origin/verifiedByTool，1�
 ## 本轮集成补记
 
 完整集成测试、Lint、Debug 和设备测试 APK 编译成功，84 个 JVM 用例全部通过，含最新来源保护。迁移005已部署，真实双用户原子快照及越权拒绝通过。设备执行待云端模拟器。
+
+## 设备首轮与修正
+
+b1940ad 的 CI35231050338：android/contracts 成功；模拟器26项通过，ReminderColdStartTest 初始化失败（Kotlin推断非void，JUnit拒绝运行）。两个冷启动测试显式声明 Unit；本地重新编译成功，并用 javap 验证两方法均为 void。设备重跑待记录。此修正只改测试，不改候选APK业务源码。
