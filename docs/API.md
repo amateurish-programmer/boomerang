@@ -9,7 +9,7 @@
 GET `/rest/v1/records?select=*&order=id.asc&limit=100&offset=0`：RLS 仅返回自己记录，包含 deleted_at 墓碑。客户端每页最多100，拉取所有页完成后再报告成功。大规模改为稳定快照游标前必须升级契约。
 POST `/rest/v1/rpc/upsert_record`：body `{p_record: RecordInput, p_expected_revision: 0, p_operation_id: UUID}`。新建 expected=0；更新带已知 revision。operation_id 在同一用户内唯一，同一操作重试用原键和相同载荷。
 用户 ID、server revision、审计时间由服务端产生，客户端不可指定最终 confirmed_status。删除通过 upsert 的 deleted_at 墓碑；不能硬删历史。
-409 / SQL 40001 表示版本冲突，拉取远端后由用户选择，不能自动覆盖。400 校验失败；401 未认证；403 无权；429 额度；503 缺配置/暂时不可用。PostgREST 原生错误体与 Edge Error 结构不同，Android 分别解析。
+409 / SQL PT409 表示版本冲突，拉取远端后由用户选择，不能自动覆盖。400 校验失败；401 未认证；403 无权；429 额度；503 缺配置/暂时不可用。PostgREST 原生错误体与 Edge Error 结构不同，Android 分别解析。
 
 ## AI（Edge 路由）
 统一 Edge Function 名称 `api`；路径 `/functions/v1/api/v1/*`。
@@ -27,7 +27,7 @@ POST `/rest/v1/rpc/upsert_record`：body `{p_record: RecordInput, p_expected_rev
 复核通过 `/rest/v1/rpc/confirm_check` 确认（p_check_id,p_expected_revision,p_status,p_reason）；AI 结果必须对应最新 revision。用户拒绝建议可暂不确认或改选结果，保留理由。
 
 ## 证据与通知
-只读 GET `/rest/v1/sources?record_id=eq.{id}`、`checks`、`check_sources`、`record_revisions`、`notifications` 均受 RLS。用户必须先能访问所属 record。来源 URL 仅 HTTP(S)，不允许本机、私网地址；打开外部链接交由系统浏览器。
+只读 GET `/rest/v1/sources?record_id=eq.{id}`、`checks`、`check_sources`、`record_revisions`、`notifications` 均受 RLS。用户必须先能访问所属 record。来源 URL 仅 HTTPS，不允许本机、私网地址；打开外部链接交由系统浏览器。
 通知已读使用专用 RPC，不能赋予客户端写任意通知内容的权限。具体 RPC 以迁移与 OpenAPI 为准。
 
 ## 任务与服务端
@@ -39,3 +39,4 @@ request_id 用于日志关联，日志不包含用户原话、邮箱、JWT和供
 
 ## 验证与变更
 后端必须校验枚举、Unicode长度、日期区间、JSON对象形状、URL来源关联。OpenAPI 描述的是交付目标，各路由实现/部署状态见 PROGRESS，不能据此宣称全部在线。
+

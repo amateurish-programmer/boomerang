@@ -41,7 +41,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -51,7 +51,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -61,7 +61,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -71,7 +71,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -81,7 +81,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -91,7 +91,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -147,7 +147,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -157,7 +157,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -167,7 +167,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -177,7 +177,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -187,7 +187,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -197,7 +197,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -249,7 +249,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -259,7 +259,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -269,7 +269,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -279,7 +279,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -289,7 +289,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -299,7 +299,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1041,7 +1041,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1051,7 +1051,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1061,7 +1061,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1071,7 +1071,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1081,7 +1081,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1091,7 +1091,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1153,7 +1153,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1163,7 +1163,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1173,7 +1173,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1183,7 +1183,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1193,7 +1193,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1203,7 +1203,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1233,7 +1233,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1243,7 +1243,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1253,7 +1253,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1263,7 +1263,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1273,7 +1273,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1283,7 +1283,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1313,7 +1313,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1323,7 +1323,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1333,7 +1333,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1343,7 +1343,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1353,7 +1353,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1363,7 +1363,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1393,7 +1393,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1403,7 +1403,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1413,7 +1413,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1423,7 +1423,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1433,7 +1433,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1443,7 +1443,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1473,7 +1473,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1483,7 +1483,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1493,7 +1493,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1503,7 +1503,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1513,7 +1513,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1523,7 +1523,54 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rest/v1/rpc/mark_notification_read": {
+      "post": {
+        "operationId": "markNotificationRead",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "p_notification_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "p_notification_id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Notification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not owned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
                 }
               }
             }
@@ -1571,7 +1618,7 @@
           },
           "subject": {
             "type": "string",
-            "maxLength": 120,
+            "maxLength": 200,
             "minLength": 1
           },
           "topic": {
@@ -1609,7 +1656,7 @@
           },
           "date_text": {
             "type": "string",
-            "maxLength": 200
+            "maxLength": 500
           },
           "date_precision": {
             "type": "string",
@@ -1628,7 +1675,7 @@
           },
           "verification_criteria": {
             "type": "string",
-            "maxLength": 2000
+            "maxLength": 4000
           },
           "notes": {
             "type": "string",
@@ -1689,7 +1736,7 @@
           },
           "subject": {
             "type": "string",
-            "maxLength": 120,
+            "maxLength": 200,
             "minLength": 1
           },
           "topic": {
@@ -1727,7 +1774,7 @@
           },
           "date_text": {
             "type": "string",
-            "maxLength": 200
+            "maxLength": 500
           },
           "date_precision": {
             "type": "string",
@@ -1746,7 +1793,7 @@
           },
           "verification_criteria": {
             "type": "string",
-            "maxLength": 2000
+            "maxLength": 4000
           },
           "notes": {
             "type": "string",
@@ -1805,8 +1852,11 @@
             ]
           },
           "confirmation_reason": {
-            "type": "string",
-            "maxLength": 2000
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4000
           },
           "confirmed_at": {
             "type": [
@@ -1838,9 +1888,12 @@
             "format": "uri"
           },
           "canonical_url": {
-            "type": "string",
-            "maxLength": 2048,
-            "format": "uri"
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "maxLength": 2048
           },
           "title": {
             "type": "string",
@@ -1895,6 +1948,27 @@
               "string",
               "null"
             ]
+          },
+          "owner_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "record_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "candidate_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "verified_by_tool": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1983,7 +2057,7 @@
           "candidates": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Draft"
+              "$ref": "#/components/schemas/Candidate"
             }
           },
           "error": {
@@ -1996,6 +2070,58 @@
         "required": [
           "job_id",
           "status"
+        ]
+      },
+      "Candidate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/Draft"
+          },
+          "accepted_record_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "draft",
+          "accepted_record_id"
+        ]
+      },
+      "PostgrestError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "message"
         ]
       }
     }
