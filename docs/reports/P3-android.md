@@ -19,3 +19,7 @@ Room v2 增加持久化冲突、胶囊字段与来源 origin/verifiedByTool，1�
 ## 设备首轮与修正
 
 b1940ad 的 CI35231050338：android/contracts 成功；模拟器26项通过，ReminderColdStartTest 初始化失败（Kotlin推断非void，JUnit拒绝运行）。两个冷启动测试显式声明 Unit；本地重新编译成功，并用 javap 验证两方法均为 void。设备重跑待记录。此修正只改测试，不改候选APK业务源码。
+
+## 最终集成验收
+
+提交263960e/b1940ad，冷启动测试方法签名修正b998828；[CI35232361933](https://github.com/amateurish-programmer/boomerang/actions/runs/35232361933)的Android、后端与Android15模拟器通过（28项设备用例、0失败）。JVM84项、后端46项通过，独立签名0.3.0候选已交付。前文“待编译/待模拟器”属当时状态，以本补记为准；真机和真实供应商仍待验收。详见 [本轮报告](INTEGRATION-0.3.0.md)。用户要求当前阶段结束即停止，未启动下一阶段。

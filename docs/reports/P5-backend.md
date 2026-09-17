@@ -42,3 +42,7 @@ QWEN_BASE_URL为百炼官方HTTPS `/compatible-mode/v1` 基础地址，不包含
 ## 本轮集成补记
 
 api/worker 已部署；后端46项通过，Android全部84项 JVM 通过。Assistant 智能录入预览、会话、研究、周报 UI 已接通。云端缺配置返回503；用户明确暂不配置百炼，真实模型与周报质量仍未验收。
+
+## 最终集成验收
+
+提交263960e/b1940ad，冷启动测试方法签名修正b998828；[CI35232361933](https://github.com/amateurish-programmer/boomerang/actions/runs/35232361933)的Android、后端与Android15模拟器通过（28项设备用例、0失败）。JVM84项、后端46项通过，独立签名0.3.0候选已交付。前文“待编译/待模拟器”属当时状态，以本补记为准；真机和真实供应商仍待验收。详见 [本轮报告](INTEGRATION-0.3.0.md)。用户要求当前阶段结束即停止，未启动下一阶段。
