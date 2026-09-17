@@ -12,7 +12,7 @@ function psqlCommand(db){
   assert.ok(['postgres:','postgresql:'].includes(url.protocol)&&['localhost','127.0.0.1','[::1]'].includes(url.hostname),'SQL verification requires a local isolated PostgreSQL service');
   url.pathname='/'+db;
   // Keep credentials out of subprocess arguments and assertion output.
-  command='psql';args=['-v','ON_ERROR_STOP=1','-qAt'];env={...process.env,PGDATABASE:url.toString()};
+  command='psql';args=['-v','ON_ERROR_STOP=1','-qAt'];env={...process.env,PGHOST:url.hostname,PGPORT:url.port||'5432',PGUSER:decodeURIComponent(url.username)||'postgres',PGPASSWORD:decodeURIComponent(url.password),PGDATABASE:db};
  }
  return {command,args,env};
 }

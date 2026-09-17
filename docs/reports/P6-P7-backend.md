@@ -66,3 +66,9 @@ SQL每套创建独立新数据库、执行bootstrap和所有迁移、测试后�
 已按[百炼联网搜索官方文档](https://help.aliyun.com/zh/model-studio/web-search)核对Responses工具及`web_search_call.action.sources`结构；测试均明确是合成响应。实际账号支持型号、max_tool_calls实际约束、真实搜索质量、摘录准确性及真实HTTP/租约时序必须用该账号真实调用复核。web_extractor响应本身不额外扩张可采信URL集合，仅search工具明确返回的URL可采信。
 
 未执行真实供应商、线上Edge部署、实际Cron触发、云端双账号研究/复核/通知/确认闭环或Android验收。提交/CI/部署链接由主任务汇总，不能据隔离测试标P6/P7最终通过。
+
+## 集成部署补记
+
+主任务重跑46/46通过、0跳过。提交3ab5a5b，迁移002/003、api、worker已发布到专用项目。迁移前schema/data备份位于忽略目录，不上传产物。线上双用户来源同步/历史/幂等/冲突与RLS冒烟通过；匿名401、缺供应商配置503、普通用户调用worker401，测试数据已清理。专用WORKER_SECRET已配置，百炼按用户选择暂缺，Cron未开启。
+
+CI35227821542 Android成功，研究SQL适配器PGDATABASE误用URL失败；改为单独PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE后等待新CI。真实供应商与自动复核闭环仍未验收。
