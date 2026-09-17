@@ -6,6 +6,8 @@
 
 ## RPC
 
+- `get_record_snapshot(p_record_id uuid) returns jsonb`（005新增）：以 SECURITY INVOKER 的单条稳定 SQL 和同一 MVCC 快照读取本人记录及活动来源，返回 `{record, sources}`，避免分别读取记录和来源时混合不同修订。无权限或记录不存在返回拒绝，owner RLS 保持生效。
+
 - `sync_record(p_record jsonb,p_sources jsonb,p_expected_revision bigint,p_operation_id uuid) returns jsonb`：P3 同步首选入口，返回 records 行；`p_record` 使用 upsert_record 的字段，`p_sources` 为至多 10 个 `{id: UUID,title: string(1..500),url: HTTPS URL}`，拒绝其余字段。owner、origin、verified_by_tool 等信任字段只由服务端赋值。记录、来源、来源历史和幂等响应同事务；一次同步只生成一条记录修订，任一步失败全量回滚。同操作键要求完整 record/sources/expected 请求一致。
 
   来源内容同 UUID 不可改，改标题或 URL 须生成新 UUID。仅 `origin=CLIENT` 且未被工具核实的手动来源参与传入列表对齐，遗漏者填写 `archived_at`，相同内容重新加入可恢复。SERVER/工具证据始终保留；已被报告引用的手动来源不得移除（PT409）。客户端显示活动来源用 archived_at IS NULL，报告仍可读取归档证据。每次 sync_record 的活动来源完整快照保存于只读、不可改删的 `record_source_revisions`，按 owner/record/revision 关联原修订；不会改写 001 中的历史快照。此前或通过 upsert_record/confirm_check 产生的修订没有来源成员快照，不能由缺失快照推断当时没有来源。
@@ -13,6 +15,7 @@
 - `upsert_record(p_record jsonb,p_expected_revision bigint,p_operation_id uuid) returns jsonb`：完整记录快照，首次 expected_revision=0，后续为当前 revision；返回 records 行。只接收用户可编辑字段，拒绝 confirmed_status 等确认审计字段。operation_id 同用户全局唯一，同一操作同一请求重放返回原响应；不同请求复用键拒绝。
 - `confirm_check(p_check_id uuid,p_expected_revision bigint,p_status text,p_reason text) returns jsonb`：要求报告 record_revision 和当前 record revision 都等于 expected_revision；保存用户确认、报告引用和理由，产生新修订。该动作不是 AI 写接口。
 - `accept_candidate(p_candidate_id uuid,p_operation_id uuid) returns jsonb`：要求候选拥有工具核实来源；事务内复制候选和证据到正式记录。重复确认返回同一记录，不重复写。
+- `accept_reviewed_candidate(p_candidate_id uuid,p_review jsonb,p_operation_id uuid) returns jsonb`（004新增）：仅 authenticated 可确认；允许核对主体、主题、说出日期、期限区间/精度/原文、时区、验证标准及备注，拒绝修改来源原话、owner、最终结果等字段。首次确认将核对信息与原提案合并为一条 ACTIVE 记录并复制证据，原候选提案保留不变；校验失败全部回滚。候选行锁与 accepted_record_id 防止并发重复收录；已收录候选重复请求只回读既有记录，不把新 review 当后续编辑。操作键包含完整 review，同键不同参数拒绝。
 - `is_due(p_due_end date,p_timezone text,p_now timestamptz) returns boolean`：用户本地日期严格大于 due_end 才到期，未知日期返回 false。
 - `mark_notification_read(p_notification_id uuid) returns jsonb`：仅当前用户可标记自己的通知，重复调用保留首次 read_at，返回 notifications 行。
 - service_role 专用：`enqueue_job(p_owner_id uuid,p_kind text,p_dedupe_key text,p_payload jsonb) returns uuid`、`claim_jobs(p_limit integer,p_lease_seconds integer) returns setof private.jobs`、`finish_job(p_job_id uuid,p_lease_token uuid,p_success boolean,p_error text) returns void`、`consume_quota(p_owner_id uuid,p_day date,p_limit integer) returns boolean`。claim 使用 SKIP LOCKED、新租约 token、最多三次尝试；完成必须同时匹配 token 和有效租约。生产 worker 仍须对供应商调用加超时和容量上限。

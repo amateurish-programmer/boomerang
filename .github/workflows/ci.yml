@@ -34,6 +34,9 @@ jobs:
           node-version: '24'
       - name: Validate API contract
         run: node scripts/check-contract.mjs
+      - name: Validate inactive research scheduler
+        shell: pwsh
+        run: ./scripts/test-research-cron.ps1
       - name: Test AI request boundaries
         run: node --test scripts/test-ai.mjs
       - name: Apply migrations and test database boundaries

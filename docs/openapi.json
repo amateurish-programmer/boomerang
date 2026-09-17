@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "回旋镖 API",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Target contract. Implemented/deployed stages are tracked separately in docs/PROGRESS.md. PostgREST errors use native {code,message,details,hint}, Edge errors use Error schema."
   },
   "servers": [
@@ -1801,6 +1801,211 @@
           }
         ]
       }
+    },
+    "/rest/v1/rpc/accept_reviewed_candidate": {
+      "post": {
+        "operationId": "acceptReviewedCandidate",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Record"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service not configured or temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "p_candidate_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "p_operation_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "p_review": {
+                    "$ref": "#/components/schemas/CandidateReview"
+                  }
+                },
+                "required": [
+                  "p_candidate_id",
+                  "p_operation_id",
+                  "p_review"
+                ]
+              }
+            }
+          }
+        },
+        "description": "Explicitly accept a user-reviewed candidate. Only listed metadata may change; original quote and raw candidate remain unchanged. Requires traceable tool evidence. Atomic record and source creation. Repeated acceptance returns the existing record without editing it."
+      }
+    },
+    "/rest/v1/rpc/get_record_snapshot": {
+      "post": {
+        "operationId": "getRecordSnapshot",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordWithSources"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service not configured or temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostgrestError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "p_record_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "p_record_id"
+                ]
+              }
+            }
+          }
+        },
+        "description": "Read one owner-isolated record and all active sources from one MVCC snapshot. Missing or foreign records are denied."
+      }
     }
   },
   "components": {
@@ -2417,6 +2622,88 @@
           "record_id",
           "revision",
           "snapshot"
+        ]
+      },
+      "CandidateReview": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "subject": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "topic": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "said_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "due_start": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "due_end": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "date_text": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "date_precision": {
+            "type": "string",
+            "enum": [
+              "UNKNOWN",
+              "DAY",
+              "MONTH",
+              "QUARTER",
+              "YEAR",
+              "RANGE"
+            ]
+          },
+          "timezone": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "verification_criteria": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        }
+      },
+      "RecordWithSources": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "record": {
+            "$ref": "#/components/schemas/Record"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            }
+          }
+        },
+        "required": [
+          "record",
+          "sources"
         ]
       }
     }

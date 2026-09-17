@@ -38,6 +38,8 @@ test('isolated research lease, quota and ownership SQL behavior',{skip:!hasSql},
  assert.equal(psql(db,"SELECT to_regprocedure('public.enqueue_research(uuid,text,jsonb,uuid,integer)') IS NOT NULL").trim(),'t','research enqueue RPC exists');
  psql(db,readFileSync('supabase/tests/behavior_test.sql','utf8'));
  psql(db,readFileSync('supabase/tests/sources_test.sql','utf8'));
+ psql(db,readFileSync('supabase/tests/reviewed_candidate_test.sql','utf8'));
+ psql(db,readFileSync('supabase/tests/snapshot_test.sql','utf8'));
  psql(db,`BEGIN;
  CREATE FUNCTION pg_temp.ok(b boolean,m text) RETURNS void LANGUAGE plpgsql AS $$ BEGIN IF b IS DISTINCT FROM true THEN RAISE EXCEPTION '%',m; END IF; END $$;
  INSERT INTO auth.users VALUES('11111111-1111-4111-8111-111111111111'),('22222222-2222-4222-8222-222222222222');
