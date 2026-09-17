@@ -19,3 +19,8 @@ enable_signup = true
 [auth.email]
 enable_signup = true
 enable_confirmations = true
+
+[functions.api]
+# The handler validates every user JWT against Auth before using any service credential.
+# Explicit validation also supports projects using asymmetric signing keys.
+verify_jwt = false
