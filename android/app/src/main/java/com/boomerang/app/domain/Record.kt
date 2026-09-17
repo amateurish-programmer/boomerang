@@ -15,6 +15,8 @@ data class RecordContent(
     val timezone: String = "Asia/Shanghai",
     val verificationCriteria: String = "",
     val notes: String = "",
+    val capsuleLockedAt: String? = null,
+    val capsuleUnlockAt: String? = null,
 )
 
 data class SourceInput(val title: String = "", val url: String = "")

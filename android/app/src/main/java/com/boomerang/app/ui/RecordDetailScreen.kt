@@ -12,7 +12,7 @@ import com.boomerang.app.domain.recordTypes
 
 @Composable
 fun RecordDetailScreen(detail: RecordDetail?, countdown: String, history: List<HistoryDisplay>, busy: Boolean, message: String?,
-    onEdit: () -> Unit, onDelete: () -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) = Page(modifier) {
+    onEdit: () -> Unit, onDelete: () -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier, onLock: () -> Unit = {}) = Page(modifier) {
     TextButton(onClick = onBack, enabled = !busy, modifier = Modifier.testTag("back")) { Text("返回") }
     Heading("记录详情", countdown)
     message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -23,6 +23,15 @@ fun RecordDetailScreen(detail: RecordDetail?, countdown: String, history: List<H
         Text(c.originalText, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag("detail_original"))
         OutlinedButton(onClick = onEdit, enabled = !busy, modifier = Modifier.testTag("edit_record")) { Text("编辑记录") }
         HorizontalDivider()
+        if (c.capsuleLockedAt != null) Field("时间胶囊解锁时间", c.capsuleUnlockAt.orEmpty())
+        else if (c.dueEnd != null) {
+            var confirmLock by rememberSaveable { mutableStateOf(false) }
+            OutlinedButton(onClick = { confirmLock = true }, enabled = !busy) { Text("封存为时间胶囊") }
+            if (confirmLock) AlertDialog(onDismissRequest = { confirmLock = false }, title = { Text("封存时间胶囊？") },
+                text = { Text("截止日结束前，原话、日期和验证标准不能再改；仍可添加备注。") },
+                confirmButton = { TextButton(onClick = { confirmLock = false; onLock() }) { Text("确认封存") } },
+                dismissButton = { TextButton(onClick = { confirmLock = false }) { Text("取消") } })
+        }
         Field("说出日期", c.saidAt ?: "未知")
         Field("期限", if (c.dueEnd == null) "未知" else "${c.dueStart} ～ ${c.dueEnd}（${datePrecisions[c.datePrecision]}）")
         Field("日期原文", c.dateText.ifBlank { "未填写" })
@@ -32,8 +41,11 @@ fun RecordDetailScreen(detail: RecordDetail?, countdown: String, history: List<H
         Field("私人备注", c.notes.ifBlank { "未填写" })
         HorizontalDivider(); Text("来源", style = MaterialTheme.typography.titleLarge)
         if (detail.sources.isEmpty()) Text("尚未添加来源")
-        detail.sources.forEach { Field(it.title, it.url) }
-        Text("手工引用 · 尚未核实", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        detail.sources.forEach {
+            Field(it.title, it.url)
+            Text(if (it.verifiedByTool) "工具返回的信源 · 不代表结论已确认" else if (it.clientEditable()) "手工引用 · 尚未核实" else "云端保留的信源 · 不代表结论已确认", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Text("来源链接供追溯，链接本身不代表结论已确认", color = MaterialTheme.colorScheme.onSurfaceVariant)
         HorizontalDivider(); Text("修改历史", style = MaterialTheme.typography.titleLarge)
         history.forEach { entry ->
             var expanded by rememberSaveable(entry.version) { mutableStateOf(false) }

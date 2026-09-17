@@ -29,7 +29,7 @@ class AuthRepository(
     private val store: SessionStore,
     private val nowSeconds: () -> Long = { System.currentTimeMillis() / 1000 },
 ) {
-    private val mutex = Mutex()
+    private companion object { val mutex = Mutex() }
 
     suspend fun currentSession(): AuthSession? = withContext(Dispatchers.IO) { mutex.withLock { store.load() } }
 

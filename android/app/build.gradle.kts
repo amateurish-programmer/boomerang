@@ -5,6 +5,13 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+val releaseSigning = listOf("ANDROID_KEYSTORE_FILE", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD")
+    .associateWith { System.getenv(it) }
+val hasReleaseSigning = releaseSigning.values.all { !it.isNullOrBlank() }
+if (gradle.startParameter.taskNames.any { it.endsWith("assembleRelease") || it.endsWith("bundleRelease") }) {
+    require(hasReleaseSigning) { "Release signing Secrets are required; unsigned release delivery is disabled." }
+}
+
 android {
     namespace = "com.boomerang.app"
     compileSdk = 35
@@ -12,9 +19,18 @@ android {
         applicationId = "com.boomerang.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+    if (hasReleaseSigning) {
+        signingConfigs.create("projectRelease") {
+            storeFile = file(releaseSigning.getValue("ANDROID_KEYSTORE_FILE")!!)
+            storePassword = releaseSigning.getValue("ANDROID_KEYSTORE_PASSWORD")
+            keyAlias = releaseSigning.getValue("ANDROID_KEY_ALIAS")
+            keyPassword = releaseSigning.getValue("ANDROID_KEY_PASSWORD")
+        }
+        buildTypes.getByName("release").signingConfig = signingConfigs.getByName("projectRelease")
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -22,6 +38,7 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
+    sourceSets["androidTest"].assets.srcDir("$projectDir/schemas")
 }
 
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
@@ -34,6 +51,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.0")
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
+    implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.room:room-runtime:2.7.2")
     implementation("androidx.room:room-ktx:2.7.2")
     ksp("androidx.room:room-compiler:2.7.2")

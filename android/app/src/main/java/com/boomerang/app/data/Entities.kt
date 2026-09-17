@@ -1,6 +1,7 @@
 package com.boomerang.app.data
 
 import androidx.room.Embedded
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -20,7 +21,12 @@ data class RecordEntity(
 )
 
 @Entity(tableName = "sources", foreignKeys = [ForeignKey(entity = RecordEntity::class, parentColumns = ["id"], childColumns = ["recordId"], onDelete = ForeignKey.RESTRICT)], indices = [Index("recordId")])
-data class SourceEntity(@PrimaryKey val id: String, val recordId: String, val ownerNamespace: String, val title: String, val url: String)
+data class SourceEntity(@PrimaryKey val id: String, val recordId: String, val ownerNamespace: String, val title: String, val url: String,
+    @ColumnInfo(defaultValue = "'CLIENT'") val origin: String = "CLIENT",
+    @ColumnInfo(defaultValue = "0") val verifiedByTool: Boolean = false,
+) {
+    fun clientEditable(): Boolean = origin == "CLIENT" && !verifiedByTool
+}
 
 @Entity(tableName = "revisions", primaryKeys = ["recordId", "localRevision"], foreignKeys = [ForeignKey(entity = RecordEntity::class, parentColumns = ["id"], childColumns = ["recordId"], onDelete = ForeignKey.RESTRICT)])
 data class RevisionEntity(val recordId: String, val localRevision: Long, val snapshotJson: String, val createdAt: String)
@@ -38,3 +44,6 @@ data class OutboxEntity(
     val leaseUntil: String? = null,
     val lastError: String? = null,
 )
+
+@Entity(tableName = "sync_conflicts")
+data class SyncConflictEntity(@PrimaryKey val recordId: String, val remoteRecordJson: String, val remoteSourcesJson: String)

@@ -33,7 +33,19 @@ class CloudRepositoriesTest {
         throw AssertionError("Expected ${T::class.java.simpleName}")
     }
 
-    @Test fun signupWithoutTokensIsPendingEmailAndDoesNotInventSession() = runBlocking<Unit> {
+    @Test fun acknowledgementSourcesMustMatchExactUploadedRevision() = runBlocking<Unit> {
+        val history = JSONObject().put("owner_id",user).put("record_id",record).put("revision",3).put("snapshot",JSONArray())
+        val fixture = Fixture(HttpResponse(200,JSONArray().put(history).toString()))
+        fails<InvalidCloudResponse> { BackendRepository(fixture).syncRemote().acknowledgedSources(session(),record,2) }
+    }
+    @Test fun pullUsesOneAtomicRecordAndSourceSnapshot() = runBlocking<Unit> {
+        val latest = JSONObject().put("owner_id",user).put("id",record).put("revision",4)
+        val body = JSONObject().put("record",latest).put("sources",JSONArray())
+        val fixture = Fixture(HttpResponse(200,body.toString()))
+        val result = BackendRepository(fixture).syncRemote().snapshot(session(),latest)
+        assertEquals(4L,JSONObject(result.recordJson).getLong("revision"))
+        assertEquals("/rest/v1/rpc/get_record_snapshot",fixture.requests.single().path)
+    }    @Test fun signupWithoutTokensIsPendingEmailAndDoesNotInventSession() = runBlocking<Unit> {
         val store = Store()
         val auth = AuthRepository(Fixture(HttpResponse(200, """{"id":"$user","identities":[]}""")), store)
         assertTrue(auth.signUp("a@example.org", "password") is SignUpResult.EmailConfirmationRequired)

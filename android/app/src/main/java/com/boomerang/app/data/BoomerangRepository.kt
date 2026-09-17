@@ -37,6 +37,7 @@ class BoomerangRepository(
         return database.withTransaction {
             val existing = id?.let { dao.get(it) }
             if (id != null && (existing == null || existing.ownerNamespace != ownerNamespace || existing.deletedAt != null || existing.localRevision != expectedLocalRevision)) throw LocalConflictException()
+            com.boomerang.app.domain.CapsulePolicy.validateChange(existing?.content, content, clock)
             require(content.confirmedStatus == existing?.content?.confirmedStatus) { "最终结果只能经确认流程修改" }
             val now = clock.instant().toString()
             val recordId = id ?: UUID.randomUUID().toString()
@@ -45,8 +46,8 @@ class BoomerangRepository(
                 existing?.serverRevision ?: 0, existing?.createdAt ?: now, now)
             if (existing == null) dao.insert(record) else check(dao.update(record) == 1)
             val oldSources = dao.sources(recordId)
-            val newSources = sources.map { input ->
-                SourceEntity(oldSources.firstOrNull { it.title == input.title && it.url == input.url }?.id ?: UUID.randomUUID().toString(), recordId, ownerNamespace, input.title, input.url)
+            val newSources = oldSources.filter { !it.clientEditable() } + sources.map { input ->
+                SourceEntity(oldSources.firstOrNull { it.clientEditable() && it.title == input.title && it.url == input.url }?.id ?: UUID.randomUUID().toString(), recordId, ownerNamespace, input.title, input.url)
             }
             dao.deleteSources(recordId)
             dao.insertSources(newSources)
@@ -70,6 +71,42 @@ class BoomerangRepository(
         dao.insertOutbox(OutboxEntity(operationId, record.id, record.localRevision, record.serverRevision, snapshot, record.updatedAt))
     }
 
+    fun anonymousTargetId(id: String): String = UUID.nameUUIDFromBytes("boomerang/anonymous/$ownerNamespace/$id".toByteArray(Charsets.UTF_8)).toString()
+
+    /** Selection is captured by the preview. Nothing is copied before the user's explicit confirmation. */
+    suspend fun importAnonymous(selection: List<RecordDetail>) {
+        require(ownerNamespace != "local" && selection.isNotEmpty())
+        require(selection.map { it.record.id }.distinct().size == selection.size)
+        selection.forEach { detail ->
+            require(detail.record.ownerNamespace == "local" && detail.record.deletedAt == null)
+            com.boomerang.app.domain.CapsulePolicy.validateChange(null, detail.record.content, clock)
+            val errors = RecordRules.validate(detail.record.content) + RecordRules.sourceErrors(detail.sources.map { com.boomerang.app.domain.SourceInput(it.title, it.url) })
+            if (errors.isNotEmpty()) throw ValidationException(errors)
+        }
+        database.withTransaction {
+            if (selection.any { dao.get(anonymousTargetId(it.record.id)) != null }) throw LocalConflictException()
+            selection.forEach { detail ->
+                val record = detail.record.copy(id = anonymousTargetId(detail.record.id), ownerNamespace = ownerNamespace, localRevision = detail.record.localRevision + 1, serverRevision = 0, content = detail.record.content.copy(confirmedStatus = null))
+                val sources = detail.sources.map { it.copy(id = anonymousTargetId(it.id), recordId = record.id, ownerNamespace = ownerNamespace) }
+                dao.insert(record); dao.insertSources(sources)
+                detail.history.forEach { revision ->
+                    val snapshot = org.json.JSONObject(revision.snapshotJson)
+                    snapshot.getJSONObject("record").put("id", record.id)
+                    val oldSources = snapshot.getJSONArray("sources")
+                    for (i in 0 until oldSources.length()) {
+                        val source = oldSources.getJSONObject(i)
+                        source.put("id", anonymousTargetId(source.getString("id"))).put("record_id", record.id)
+                    }
+                    snapshot.put("server_revision", 0)
+                    dao.insertRevision(revision.copy(recordId = record.id, snapshotJson = snapshot.toString()))
+                }
+                if (detail.history.none { it.localRevision == record.localRevision })
+                    dao.insertRevision(RevisionEntity(record.id, record.localRevision, RecordSnapshot.encode(record, sources), record.updatedAt))
+                dao.insertOutbox(OutboxEntity(UUID.randomUUID().toString(), record.id, record.localRevision, 0,
+                    RecordSnapshot.encode(record, sources), clock.instant().toString()))
+            }
+        }
+    }
     /** Tombstones are deliberately retained for subsequent export and sync. */
     suspend fun exportRecords(): List<RecordEntity> = dao.allIncludingDeleted().filter { it.ownerNamespace == ownerNamespace }
 }

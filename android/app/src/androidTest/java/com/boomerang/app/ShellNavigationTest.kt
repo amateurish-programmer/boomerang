@@ -25,6 +25,23 @@ class ShellNavigationTest {
         }
     }
 
+    @Test fun profileProvidesExplicitLoginAndImportBoundary() {
+        compose.onNodeWithTag("nav_PROFILE").performClick()
+        compose.onNodeWithTag("account_email").assertIsDisplayed()
+        compose.onNodeWithTag("account_password").assertIsDisplayed()
+        compose.onNodeWithTag("account_login").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun localReviewAndBackupEntryReturnsToProfile() {
+        compose.onNodeWithTag("nav_PROFILE").performClick()
+        compose.onNodeWithText("回顾、分享与备份").performClick()
+        compose.onNodeWithText("回顾与备份").assertIsDisplayed()
+        compose.onNodeWithText("年度报告").assertIsDisplayed()
+        compose.onNodeWithText("导入预览").performScrollTo().assertIsDisplayed()
+        compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithTag("account_email").assertIsDisplayed()
+    }
+
     @Test fun editorDraftSurvivesBackAndRecreation() {
         compose.onNodeWithTag("nav_LIBRARY").performClick()
         compose.onNodeWithTag("create_record").performClick()

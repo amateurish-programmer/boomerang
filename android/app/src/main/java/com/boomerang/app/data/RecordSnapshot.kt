@@ -14,13 +14,14 @@ object RecordSnapshot {
             put("said_at", c.saidAt ?: JSONObject.NULL); put("due_start", c.dueStart ?: JSONObject.NULL); put("due_end", c.dueEnd ?: JSONObject.NULL)
             put("date_text", c.dateText); put("date_precision", c.datePrecision); put("timezone", c.timezone)
             put("verification_criteria", c.verificationCriteria); put("notes", c.notes)
+            put("capsule_locked_at", c.capsuleLockedAt ?: JSONObject.NULL); put("capsule_unlock_at", c.capsuleUnlockAt ?: JSONObject.NULL)
             put("created_at", record.createdAt); put("updated_at", record.updatedAt); put("deleted_at", record.deletedAt ?: JSONObject.NULL)
         }
         return JSONObject().apply {
             put("record", row); put("local_revision", record.localRevision); put("server_revision", record.serverRevision)
             put("sources", JSONArray().apply { sources.forEach { source -> put(JSONObject().apply {
                 put("id", source.id); put("record_id", source.recordId); put("title", source.title); put("url", source.url)
-                put("verified_by_tool", false)
+                put("verified_by_tool", source.verifiedByTool); put("origin", source.origin)
             }) } })
         }.toString()
     }

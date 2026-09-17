@@ -8,7 +8,7 @@ class BackendRepository(private val transport: HttpTransport) {
         listAll(session, "records", "")
 
     suspend fun listSources(session: AuthSession, recordId: String): List<JSONObject> =
-        listAll(session, "sources", "&record_id=eq.${requireUuid(recordId)}")
+        listAll(session, "sources", "&record_id=eq.${requireUuid(recordId)}&archived_at=is.null")
 
     suspend fun listChecks(session: AuthSession, recordId: String): List<JSONObject> =
         listAll(session, "checks", "&record_id=eq.${requireUuid(recordId)}")
@@ -31,6 +31,40 @@ class BackendRepository(private val transport: HttpTransport) {
         return result
     }
 
+    suspend fun syncRecord(session: AuthSession, pending: PendingUpload, operationId: String): JSONObject {
+        val body = JSONObject().put("p_record", JSONObject(pending.recordJson)).put("p_sources", org.json.JSONArray(pending.sourcesJson))
+            .put("p_expected_revision", pending.serverRevision).put("p_operation_id", requireUuid(operationId))
+        val result = jsonObject(transport.execute(HttpRequest("POST", "/rest/v1/rpc/sync_record", headers(session.accessToken), body.toString())).requireSuccess())
+        checkOwner(result, session)
+        if (result.optString("id") != pending.recordId || result.optLong("revision", -1) != pending.serverRevision + 1) throw InvalidCloudResponse()
+        return result
+    }
+
+    fun syncRemote(): SyncRemote = object : SyncRemote {
+        override suspend fun upload(session: AuthSession, pending: PendingUpload, operationId: String) = syncRecord(session, pending, operationId)
+        override suspend fun records(session: AuthSession) = listAllRecords(session)
+        override suspend fun sources(session: AuthSession, recordId: String) = listSources(session, recordId)
+        override suspend fun acknowledgedSources(session: AuthSession, recordId: String, revision: Long): List<JSONObject> {
+            require(revision > 0)
+            val result = jsonArray(transport.execute(HttpRequest("GET",
+                "/rest/v1/record_source_revisions?select=*&record_id=eq.${requireUuid(recordId)}&revision=eq.$revision&limit=1", headers(session.accessToken))).requireSuccess())
+            if (result.length() != 1) throw InvalidCloudResponse()
+            val row = result.getJSONObject(0)
+            checkOwner(row, session)
+            if (row.optString("record_id") != recordId || row.optLong("revision", -1) != revision) throw InvalidCloudResponse()
+            return checkedSources(row.getJSONArray("snapshot"), session, recordId)
+        }
+        override suspend fun snapshot(session: AuthSession, row: JSONObject): RemoteRecord {
+            val id = requireUuid(row.getString("id"))
+            val body = JSONObject().put("p_record_id", id)
+            val result = jsonObject(transport.execute(HttpRequest("POST", "/rest/v1/rpc/get_record_snapshot", headers(session.accessToken), body.toString())).requireSuccess())
+            val record = result.getJSONObject("record")
+            checkOwner(record, session)
+            if (record.optString("id") != id || record.optLong("revision", -1) < row.getLong("revision")) throw InvalidCloudResponse()
+            val sources = checkedSources(result.getJSONArray("sources"), session, id)
+            return RemoteRecord(record.toString(), org.json.JSONArray(sources).toString())
+        }
+    }
     private suspend fun listAll(session: AuthSession, table: String, filter: String, order: String = "id.asc"): List<JSONObject> {
         val complete = mutableListOf<JSONObject>()
         var offset = 0
@@ -52,6 +86,16 @@ class BackendRepository(private val transport: HttpTransport) {
         }
     }
 
+    private fun checkedSources(array: org.json.JSONArray, session: AuthSession, recordId: String): List<JSONObject> {
+        if (array.length() > 1000) throw InvalidCloudResponse()
+        return (0 until array.length()).map { index ->
+            array.getJSONObject(index).also { source ->
+                checkOwner(source, session)
+                if (source.optString("record_id") != recordId) throw InvalidCloudResponse()
+                requireUuid(source.getString("id"))
+            }
+        }
+    }
     private fun checkOwner(record: JSONObject, session: AuthSession) {
         val owner = record.optString("owner_id")
         if (owner.isBlank()) throw InvalidCloudResponse()

@@ -2,6 +2,12 @@ package com.boomerang.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.key
+import com.boomerang.app.assistant.AssistantScreen
+import com.boomerang.app.extras.ExtrasScreen
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Home
@@ -21,6 +27,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun BoomerangApp(model: ShellViewModel = viewModel()) {
+    val account by model.account.collectAsStateWithLifecycle()
+    val owner by model.ownerNamespace.collectAsStateWithLifecycle()
     val selected by model.destination.collectAsStateWithLifecycle()
     val screen by model.screen.collectAsStateWithLifecycle()
     val editor by model.editor.collectAsStateWithLifecycle()
@@ -55,14 +63,22 @@ fun BoomerangApp(model: ShellViewModel = viewModel()) {
     }) { padding ->
         val modifier = Modifier.padding(padding)
         when (screen) {
+            "extras" -> Column(modifier.fillMaxSize()) {
+                TextButton(onClick = model::back) { Text("返回") }
+                key(owner) { ExtrasScreen(owner, model::openDetail, Modifier.weight(1f)) }
+            }
             "editor" -> RecordEditor(editor, errors, busy, message, model::updateContent, model::updateSources, model::save, model::back, modifier)
-            "detail" -> RecordDetailScreen(detail, detail?.record?.let(model::countdown).orEmpty(), model.history(detail), busy, message, model::editCurrent, model::deleteCurrent, model::back, modifier)
+            "detail" -> RecordDetailScreen(detail, detail?.record?.let(model::countdown).orEmpty(), model.history(detail), busy, message, model::editCurrent, model::deleteCurrent, model::back, modifier, model::lockCurrent)
             else -> when (Destination.valueOf(selected)) {
                 Destination.HOME -> HomeScreen(library, model::countdown, model::openEditor, model::openDetail, model::retry, modifier)
                 Destination.LIBRARY -> LibraryScreen(library, model.filtered(library.records, query, type, result, sort), query, type, result, sort,
                     model::setQuery, model::setType, model::setResult, model::setSort, model::countdown, model::openEditor, model::openDetail, model::retry, modifier)
-                Destination.AI -> AiScreen(modifier)
-                Destination.PROFILE -> ProfileScreen(modifier)
+                Destination.AI -> key(owner) { AssistantScreen(owner, model::openAiDraft, model::syncAndOpenDetail, modifier = modifier) }
+                Destination.PROFILE -> Column(modifier.fillMaxSize()) {
+                    TextButton(onClick = model::openExtras, enabled = account.ready && !busy) { Text("回顾、分享与备份") }
+                    AccountScreen(account, owner, busy, model::signIn, model::signUp, model::signOut, model::sync,
+                        model::previewAnonymous, model::importAnonymous, model::resolveConflict, model::openDetail, Modifier.weight(1f))
+                }
             }
         }
     }
