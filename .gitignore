@@ -1,0 +1,16 @@
+.tools/
+.env
+.env.*
+!.env.example
+local.properties
+**/.gradle/
+**/build/
+**/.kotlin/
+node_modules/
+dist/
+*.jks
+*.keystore
+*.pem
+supabase/.temp/
+supabase/.branches/
+.DS_Store
