@@ -24,8 +24,10 @@ Cron 仅入队和调 worker，worker secret 存 Vault，禁止把 service_role �
 
 ## 当前候选签名与恢复
 
-0.3.0 为验收候选版本。手动运行 `release.yml`，读取四项独立 Android 签名 Secrets，执行 JVM/Lint/Release 构建与 apksigner 校验；产物名称 `boomerang-signed-candidate-*`。未配置签名时禁止生成可交付的 unsigned release。独立私钥的本机恢复副本为忽略目录中的 DPAPI 加密文件，绑定当前 Windows 用户；更换机器前须由该用户解密后转存受控秘密存储，不可提交或作为构建产物上传。
+0.3.1 为当前验收候选版本，具体构建、校验值及未验收项见 [集成报告](reports/INTEGRATION-0.3.1.md)。手动运行 `release.yml`，读取四项独立 Android 签名 Secrets，执行 JVM/Lint/Release 构建与 apksigner 校验；产物名称 `boomerang-signed-candidate-*`。未配置签名时禁止生成可交付的 unsigned release。独立私钥的本机恢复副本为忽略目录中的 DPAPI 加密文件，绑定当前 Windows 用户；更换机器前须由该用户解密后转存受控秘密存储，不可提交或作为构建产物上传。
 
 Debug 与签名候选使用不同证书，同 applicationId 不能直接覆盖安装。先在应用中导出 JSON 备份，再卸载 Debug 包、安装候选包；导入必须预览确认，外部文件的历史确认不直接成为当前正式结果。云端记录可登录后重新同步。后续候选使用同一独立发布证书及递增 versionCode。
+
+0.3.0 与 0.3.1 使用同一独立证书，versionCode 从 3 增至 4，可按正常升级流程覆盖安装；实际手机升级后的数据保留须按 [真机清单](DEVICE_ACCEPTANCE.md) 留证，不以签名一致替代升级验收。
 
 客户端回退先导出备份；Android 不支持安全降级覆盖安装，Room v2 不得用旧 v1 数据库代码强行打开。优先提交向前修复、递增版本并保留显式迁移。迁移 001–005 已发布，不改写历史 SQL。生产 Cron 当前关闭，后续操作见 [研究调度说明](RESEARCH_CRON.md)，未做真实百炼冒烟前保持关闭。

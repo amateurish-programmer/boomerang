@@ -10,5 +10,6 @@ Android 言论、Flag、承诺、预测与里程碑追踪器。记录原话和�
 - [API 定义](docs/API.md) / [OpenAPI](docs/openapi.json)
 - [当前进度](docs/PROGRESS.md)
 - [部署说明](docs/DEPLOYMENT.md)
+- [真机验收清单](docs/DEVICE_ACCEPTANCE.md)
 
-本项目独立于 AI 家庭账本，不连接其生产库。云端构建产物为开发 APK，正式签名与真机验收单独记录。
+本项目独立于 AI 家庭账本，不连接其生产库。云端分别生成 Debug APK 与独立签名候选；候选构建、设备验证和剩余外部验收见 [0.3.1 报告](docs/reports/INTEGRATION-0.3.1.md)，尚未标记 V1 完成。
