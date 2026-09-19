@@ -39,7 +39,7 @@ test('accepts manifest and rejects malformed or untrusted fields', () => {
 
 // Only the external HTTP boundary is simulated: the real publisher controls every
 // request, hash, promotion, guard and error. No live keys or network are used.
-function storage({ latest, corrupt = false, locked = false, existingApk, redirect = false, existingBucket } = {}) {
+function storage({ latest, corrupt = false, locked = false, existingApk, redirect = false, existingBucket, globalLimit = Infinity } = {}) {
   const objects = new Map();
   if (latest) objects.set('android/latest.json', Buffer.from(JSON.stringify(latest)));
   if (existingApk) objects.set('android/6/app.apk', existingApk);
@@ -52,6 +52,7 @@ function storage({ latest, corrupt = false, locked = false, existingApk, redirec
     const pathname = new URL(url).pathname;
     if (pathname.startsWith('/storage/v1/bucket')) {
       if (method === 'GET') return new Response(bucket ? JSON.stringify(existingBucket ?? { id: 'app-updates', public: true }) : '{"statusCode":"404","message":"Bucket not found"}', { status: bucket ? 200 : 400 });
+      if (JSON.parse(options.body).file_size_limit > globalLimit) return new Response('{}', { status: 413 });
       bucket = true;
       return new Response('{}');
     }
@@ -64,6 +65,7 @@ function storage({ latest, corrupt = false, locked = false, existingApk, redirec
       return new Response(bytes);
     }
     if (method === 'DELETE') { objects.delete(key); return new Response('{}'); }
+    if (Buffer.byteLength(options.body) > globalLimit) return new Response('{}', { status: 413 });
     if (objects.has(key) && options.headers['x-upsert'] !== 'true') return new Response('{}', { status: 409 });
     objects.set(key, Buffer.from(options.body));
     return new Response('{}');
@@ -129,6 +131,23 @@ test('existing private or incompatible bucket is rejected without changing bucke
     const fake = storage({ existingBucket });
     await assert.rejects(run(fake));
     assert.equal(fake.calls.some(call => call.method !== 'GET'), false);
+  }
+});
+test('first publish inherits a 50 MB tenant limit instead of requesting a larger bucket limit', async () => {
+  const fake = storage({ globalLimit: 50000000 });
+  assert.deepEqual(await run(fake), manifest);
+  const creation = fake.calls.find(call => call.method === 'POST' && call.url.endsWith('/bucket'));
+  assert.equal(Object.hasOwn(JSON.parse(creation.body), 'file_size_limit'), false);
+});
+test('existing bucket accepts the actual largest file size and rejects one byte less without writes', async () => {
+  for (const bytes of [apk, Buffer.alloc(1024, 42)]) {
+    const expected = { ...manifest, sizeBytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
+    const required = Math.max(bytes.length, Buffer.byteLength(JSON.stringify(expected)));
+    const fake = storage({ existingBucket: { id: 'app-updates', public: true, file_size_limit: required } });
+    assert.deepEqual(await run(fake, { apk: bytes }), expected);
+    const tooSmall = storage({ existingBucket: { id: 'app-updates', public: true, file_size_limit: required - 1 } });
+    await assert.rejects(run(tooSmall, { apk: bytes }));
+    assert.equal(tooSmall.calls.some(call => call.method !== 'GET'), false);
   }
 });
 test('bounded streaming rejects announced and unannounced oversized responses', async () => {

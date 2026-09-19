@@ -32,7 +32,7 @@ node scripts/publish-ota.mjs --apk dist/0.4.1/boomerang-0.4.1.apk --notes dist/0
 
 ## 发布顺序与恢复
 
-1. 首次创建专用 `app-updates` 桶：公开读取、64 MiB 文件限制，只接受 APK/JSON MIME。若桶已存在，只读取核对公开属性、文件大小和 MIME 兼容性；私有或不兼容的桶立即停止，不自动改变访问权限或暴露已有文件。发布器不创建匿名或已登录客户端的写策略；所有写操作使用 service-role。公开桶的访问规则仍须审查，避免另有宽泛 Storage 写策略覆盖此桶。
+1. 首次创建专用 `app-updates` 桶：公开读取，只接受 APK/JSON MIME；不指定桶级 `file_size_limit`，继承项目现有全局限制。协议与下载校验的 64 MiB 是安全上限，不保证云项目允许该大小；Supabase Free 项目的全局上限不能超过 50 MB，桶级限制不能超过全局限制。若桶已存在，只读取核对公开属性和 MIME，并确认显式桶级限制能分别容纳本次 APK、序列化清单和锁文件中的最大实际字节数；不要求桶支持完整 64 MiB。私有或不兼容的桶立即停止，不自动改变访问权限或暴露已有文件。全局限制仍由 Storage 在实际上传时执行，超限失败不会提升清单。发布器不创建匿名或已登录客户端的写策略；所有写操作使用 service-role。公开桶的访问规则仍须审查，避免另有宽泛 Storage 写策略覆盖此桶。
 2. 以禁止覆盖的对象创建获取 `android/publish.lock`，串行化本机和 CI 发布。锁内只存随机 ID 与开始时间，不含密钥。
 3. 通过认证读取现有清单，拒绝降级及同版本不同 APK、名称、SDK 或说明。
 4. 上传 `android/<versionCode>/app.apk`，`x-upsert=false`，原始请求体使用完整 HTTP 头 `Cache-Control: max-age=31536000, immutable`。已有文件不能覆盖；中断重试必须验证已有公开文件与本次 APK 的长度和 SHA256 完全一致。
@@ -48,4 +48,4 @@ node scripts/publish-ota.mjs --apk dist/0.4.1/boomerang-0.4.1.apk --notes dist/0
 
 离线 Node 测试使用隔离 HTTP 响应，证明校验、顺序和失败处理，不能替代真实云上传。APK 元数据与签名校验不能替代手机安装验收。发布后分别记录公开下载哈希、实际清单、手机升级前后版本/签名，以及已有记录保留情况。未知来源权限和系统安装确认由用户在应用中明确操作。
 
-参考：[Supabase Storage API](https://supabase.com/docs/reference/self-hosting-storage/introduction)、[公开桶与访问控制](https://supabase.com/docs/guides/storage/security/access-control)、[Android APK 签名验证](https://developer.android.com/tools/apksigner)。
+参考：[Supabase Storage API](https://supabase.com/docs/reference/self-hosting-storage/introduction)、[全局和桶级文件限制](https://supabase.com/docs/guides/storage/uploads/file-limits)、[公开桶与访问控制](https://supabase.com/docs/guides/storage/security/access-control)、[Android APK 签名验证](https://developer.android.com/tools/apksigner)。

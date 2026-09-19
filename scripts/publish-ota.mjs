@@ -77,6 +77,10 @@ export async function publishOta({ apk, metadata, notes, serviceKey, fetchImpl =
   if (!serviceKey || /[\r\n]/.test(serviceKey)) fail('Missing or invalid BOOMERANG_SUPABASE_SERVICE_ROLE_KEY.');
   if (!Buffer.isBuffer(apk) || apk.length < 1 || apk.length > MAX_APK) fail('APK size is outside the permitted range.');
   const manifest = validateManifest({ schemaVersion: 1, ...metadata, apkUrl: `${PUBLIC}android/${metadata.versionCode}/app.apk`, sha256: hash(apk), sizeBytes: apk.length, notes, publishedAt: now().toISOString() });
+  const lockData = { id: randomUUID(), startedAt: now().toISOString() };
+  const manifestBytes = Buffer.byteLength(JSON.stringify(manifest));
+  if (manifestBytes > MAX_MANIFEST) fail('Manifest exceeds permitted size.');
+  const requiredObjectBytes = Math.max(apk.length, manifestBytes, Buffer.byteLength(JSON.stringify(lockData)));
   const request = async (path, { method = 'GET', body, publicRead = false, limit = MAX_MANIFEST, headers = {} } = {}) => {
     const url = publicRead ? `${PUBLIC}${path}` : `${STORAGE}${path}`;
     // Timeout covers both headers and streamed body. No redirects, URLs supplied
@@ -93,16 +97,18 @@ export async function publishOta({ apk, metadata, notes, serviceKey, fetchImpl =
   const jsonWrite = (path, value, method = 'POST', upsert = false) => request(path, { method, body: Buffer.from(JSON.stringify(value)), headers: { 'content-type': 'application/json', 'cache-control': 'max-age=0', 'x-upsert': String(upsert) } });
   const bucket = await request('/bucket/app-updates');
   if (missing(bucket.status, bucket.bytes)) {
-    expectOk(await jsonWrite('/bucket', { id: 'app-updates', name: 'app-updates', public: true, file_size_limit: MAX_APK, allowed_mime_types: ['application/vnd.android.package-archive', 'application/json'] }));
+    // Omit a per-bucket limit to inherit the enforced tenant global limit. The
+    // protocol's 64 MiB ceiling may exceed a Free project's configured limit.
+    expectOk(await jsonWrite('/bucket', { id: 'app-updates', name: 'app-updates', public: true, allowed_mime_types: ['application/vnd.android.package-archive', 'application/json'] }));
   } else {
     expectOk(bucket);
     let existing;
     try { existing = JSON.parse(bucket.bytes); } catch { fail('Existing bucket metadata is invalid.'); }
-    if (existing.id !== 'app-updates' || existing.public !== true || (existing.file_size_limit != null && (!Number.isSafeInteger(existing.file_size_limit) || existing.file_size_limit < MAX_APK)) || (existing.allowed_mime_types != null && (!Array.isArray(existing.allowed_mime_types) || !['application/vnd.android.package-archive', 'application/json'].every(type => existing.allowed_mime_types.includes(type))))) fail('Existing bucket is private or incompatible; review its configuration without exposing preexisting files.');
+    if (existing.id !== 'app-updates' || existing.public !== true || (existing.file_size_limit != null && (!Number.isSafeInteger(existing.file_size_limit) || existing.file_size_limit < requiredObjectBytes)) || (existing.allowed_mime_types != null && (!Array.isArray(existing.allowed_mime_types) || !['application/vnd.android.package-archive', 'application/json'].every(type => existing.allowed_mime_types.includes(type))))) fail('Existing bucket is private or incompatible; review its configuration without exposing preexisting files.');
   }
   // Atomic create serializes CLI and workflow publishers across machines. Never
   // steal/expire a lock while its owner might still be promoting a release.
-  const lock = await jsonWrite(object('android/publish.lock'), { id: randomUUID(), startedAt: now().toISOString() });
+  const lock = await jsonWrite(object('android/publish.lock'), lockData);
   if (!lock.ok) fail('Publication lock unavailable; confirm no publisher is active before manual recovery.');
   try {
     const previous = await request(object('android/latest.json'));
