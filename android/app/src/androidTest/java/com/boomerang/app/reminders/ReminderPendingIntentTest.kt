@@ -1,6 +1,7 @@
 package com.boomerang.app.reminders
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -47,7 +48,10 @@ class ReminderPendingIntentTest {
                     waitForSystem { fixture.active(sameId).size == 1 }
                     val pending = fixture.active(sameId).single().notification.contentIntent
                     val deliveryKey = fixture.inbox().single { it.recordId == sameId }.key
-                    ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                    val launchIntent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    ActivityScenario.launch<MainActivity>(launchIntent).use { scenario ->
+                      try {
+                        withNotificationFailureEvidence(context, "notification-old-pending-intent-failure") {
                         compose.waitUntil(10_000) {
                             ReminderScheduler.currentOwner(context) == "local" &&
                                 compose.onAllNodesWithTag("create_record").fetchSemanticsNodes().isNotEmpty()
@@ -62,6 +66,12 @@ class ReminderPendingIntentTest {
                         compose.waitForIdle()
                         compose.onNodeWithTag("detail_original").assertDoesNotExist()
                         assertTrue(compose.onAllNodesWithTag("create_record").fetchSemanticsNodes().isNotEmpty())
+                        }
+                      } finally {
+                        // ActivityScenario matches lifecycle events to its launch Intent. The actual
+                        // onNewIntent and routing assertions above must finish before restoring it.
+                        scenario.onActivity { it.intent = Intent(launchIntent) }
+                      }
                     }
                 }
             } finally {
@@ -82,7 +92,10 @@ class ReminderPendingIntentTest {
             val id = repository.save(RecordContent(originalText = "从真实系统通知打开的记录",
                 dueStart = date, dueEnd = date, dateText = date, datePrecision = "DAY", timezone = "UTC"), emptyList())
             try {
-                ActivityScenario.launch(MainActivity::class.java).use {
+                val launchIntent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                ActivityScenario.launch<MainActivity>(launchIntent).use { scenario ->
+                  try {
+                    withNotificationFailureEvidence(context, "notification-system-click-failure") {
                     compose.waitUntil(10_000) {
                         ReminderScheduler.currentOwner(context) == "local" &&
                             compose.onAllNodesWithTag("create_record").fetchSemanticsNodes().isNotEmpty()
@@ -100,6 +113,8 @@ class ReminderPendingIntentTest {
                     compose.waitUntil(10_000) { compose.onAllNodesWithTag("detail_original").fetchSemanticsNodes().isNotEmpty() }
                     compose.onNodeWithTag("detail_original").assertTextEquals("从真实系统通知打开的记录")
                     notificationScreenshot(context, "notification-opened-record")
+                    }
+                  } finally { scenario.onActivity { it.intent = Intent(launchIntent) } }
                 }
             } finally {
                 repository.detail(id)?.let { repository.softDelete(id, it.record.localRevision) }

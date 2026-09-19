@@ -3,7 +3,9 @@ package com.boomerang.app.reminders
 import android.Manifest
 import android.app.Application
 import android.app.NotificationManager
+import android.content.Intent
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
@@ -15,7 +17,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
@@ -49,10 +54,21 @@ class NotificationViewModel(application: Application) : AndroidViewModel(applica
 fun NotificationCenter(ownerNamespace: String, onOpenRecord: (String) -> Unit, modifier: Modifier = Modifier,
     model: NotificationViewModel = viewModel()) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val notificationManager = remember(context) { context.getSystemService(NotificationManager::class.java) }
     val items by model.items.collectAsStateWithLifecycle()
     val error by model.error.collectAsStateWithLifecycle()
-    var allowed by remember { mutableStateOf(context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()) }
-    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it }
+    var allowed by remember(notificationManager) { mutableStateOf(notificationManager.areNotificationsEnabled()) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        allowed = notificationManager.areNotificationsEnabled()
+    }
+    DisposableEffect(lifecycleOwner, notificationManager) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) allowed = notificationManager.areNotificationsEnabled()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     LaunchedEffect(ownerNamespace) { model.selectOwner(ownerNamespace) }
     Column(modifier.fillMaxWidth()) {
         Text("通知中心", style = MaterialTheme.typography.titleLarge)
@@ -60,6 +76,10 @@ fun NotificationCenter(ownerNamespace: String, onOpenRecord: (String) -> Unit, m
         if (!allowed) {
             Text("系统通知未开启，提醒仍会保存在这里。")
             if (Build.VERSION.SDK_INT >= 33) TextButton(onClick = { permission.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text("开启系统通知") }
+            TextButton(onClick = {
+                context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+            }) { Text("通知设置") }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         val visible = items.filter { it.owner == ownerNamespace }

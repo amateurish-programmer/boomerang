@@ -8,11 +8,14 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.filters.SdkSuppress
 import com.boomerang.app.ui.BoomerangTheme
 import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 
+/** On Android 13+, NotificationPermissionTest exercises the actual runtime permission instead. */
+@SdkSuppress(maxSdkVersion = 32)
 class NotificationSettingsTest {
     @get:Rule val compose = createComposeRule()
 
@@ -21,6 +24,7 @@ class NotificationSettingsTest {
         NotificationSystemFixture(context).use { fixture ->
             allowSystemNotifications(context)
             try {
+              withNotificationFailureEvidence(context, "notification-settings-route-failure") {
                 fixture.device.executeShellCommand("appops set ${context.packageName} POST_NOTIFICATION ignore")
                 waitForSystem { !fixture.manager.areNotificationsEnabled() }
                 assertFalse(fixture.manager.areNotificationsEnabled())
@@ -30,6 +34,7 @@ class NotificationSettingsTest {
                 enableNotificationsInSettings(fixture.device, context)
                 compose.waitForIdle()
                 compose.onNodeWithText("系统通知未开启，提醒仍会保存在这里。").assertDoesNotExist()
+              }
             } finally { allowSystemNotifications(context) }
         }
     }
@@ -39,6 +44,7 @@ class NotificationSettingsTest {
         NotificationSystemFixture(context).use { fixture ->
             allowSystemNotifications(context)
             try {
+              withNotificationFailureEvidence(context, "notification-settings-return-failure") {
                 fixture.device.executeShellCommand("appops set ${context.packageName} POST_NOTIFICATION ignore")
                 waitForSystem { !fixture.manager.areNotificationsEnabled() }
                 compose.setContent { BoomerangTheme { NotificationCenter(fixture.owner, {}) } }
@@ -49,6 +55,7 @@ class NotificationSettingsTest {
                 enableNotificationsInSettings(fixture.device, context)
                 compose.waitForIdle()
                 compose.onNodeWithText("系统通知未开启，提醒仍会保存在这里。").assertDoesNotExist()
+              }
             } finally { allowSystemNotifications(context) }
         }
     }

@@ -106,3 +106,27 @@ internal fun notificationScreenshot(context: Context, name: String) {
     assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         .takeScreenshot(File(directory, "$name-api${Build.VERSION.SDK_INT}.png")))
 }
+
+/** Capture before the fixture restores permissions, notifications or the foreground Activity. */
+internal inline fun <T> withNotificationFailureEvidence(
+    context: Context,
+    name: String,
+    details: () -> String = { "" },
+    block: () -> T,
+): T = try {
+    block()
+} catch (failure: Throwable) {
+    val directory = File(context.getExternalFilesDir(null), "acceptance").apply { mkdirs() }
+    val stem = "$name-api${Build.VERSION.SDK_INT}"
+    val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+    runCatching { notificationScreenshot(context, name) }.exceptionOrNull()?.let(failure::addSuppressed)
+    runCatching { device.dumpWindowHierarchy(File(directory, "$stem.xml")) }.exceptionOrNull()?.let(failure::addSuppressed)
+    runCatching {
+        File(directory, "$stem.txt").writeText(buildString {
+            appendLine(failure.stackTraceToString())
+            appendLine(runCatching(details).getOrElse { "Unable to collect UI details: $it" })
+            appendLine(device.executeShellCommand("dumpsys activity top"))
+        })
+    }.exceptionOrNull()?.let(failure::addSuppressed)
+    throw failure
+}

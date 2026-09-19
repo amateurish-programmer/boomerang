@@ -334,9 +334,18 @@ class ExtrasSystemTest {
     }
 
     private fun awaitDocuments(): String {
-        val selector = By.pkg(Pattern.compile("com\\.(android|google\\.android)\\.documentsui"))
-        assertTrue("Android DocumentsUI must open", device.wait(Until.hasObject(selector), 10_000))
-        return device.findObject(selector).applicationPackage
+        val packages = setOf("com.android.documentsui", "com.google.android.documentsui")
+        var documents: String? = null
+        // DocumentsUI replaces its accessibility tree while opening. Read the foreground
+        // package afresh rather than retaining a UiObject2 across that transition.
+        compose.waitUntil(10_000) {
+            val current = device.currentPackageName
+            if (current != null && current in packages && device.hasObject(By.pkg(current))) {
+                documents = current
+                true
+            } else false
+        }
+        return checkNotNull(documents) { "Android DocumentsUI must open" }
     }
 
     private fun chooseDownloads(documents: String): Unit {

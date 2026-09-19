@@ -27,9 +27,19 @@
 - 本文初次写入时尚未运行本轮 Gradle 或设备测试，不能将“测试源码已添加”记为通过。主任务统一执行编译及 API 26 / 33 / 35 矩阵，并补充实际用例数量、结果、CI 和视觉核验。
 - 当前未修改生产 extras 实现。若设备运行暴露问题，先保留实际失败证据再作针对性修复。
 
+### 首轮 Android 15（API 35）结果
+
+[CI 35442288093](https://github.com/amateurish-programmer/boomerang/actions/runs/35442288093) 的 `ExtrasSystemTest` 实际执行 7 项：6 项通过、1 项失败、0 跳过。通过项覆盖系统选择器取消、从空库预览确认恢复、两个账号切换回调边界、ContentResolver 非法文件拒绝，以及 PNG / FileProvider / 系统分享面板。
+
+失败项为 `downloadsRoundTripRequiresPreviewAndExplicitConfirmation`：首次打开导出选择器时，`awaitDocuments()` 读取先前获取的 `UiObject2.applicationPackage`，系统窗口刷新导致 `StaleObjectException`；堆栈在测试辅助方法，尚未到该用例的导入/替换断言。这是测试界面同步问题，不能记为该往返用例通过，也没有据此修改生产行为。
+
+修正只涉及辅助方法：在原有 10 秒上限内，每次重新读取前台包名并验证其为 Android / Google DocumentsUI 的准确包名，同时确认对应界面存在，再返回该包名；不跨窗口变化保留 accessibility 节点。全部业务断言保留。修正后的设备重跑、API 26 / 33 结果及截图视觉检查仍待主任务补记，当前不宣称 7 项全部通过。
+
 ## 仍待验收
 
-- 本轮设备测试与截图实际结果，待主任务补记。
+- 辅助方法修正后的设备重跑、API 26 / 33 与截图实际结果，待主任务补记。
 - 第三方 DocumentsProvider、真实设备系统文件应用与外部分享接收方仍须真机验收。
 - PNG 文字排版须查看实际截图后记录；像素和文件头断言不等同于视觉通过。
 - 本任务不启用生产 Cron，也不声称百炼、真实 AI 周报或 V1 全部验收通过。
+
+本轮修正后主任务执行 JVM84项、Lint、Debug和设备测试APK构建通过（.tools/acceptance-fix-build.log，1m17s）。设备矩阵结果另补，不以编译代替执行。
