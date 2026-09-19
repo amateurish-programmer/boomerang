@@ -47,6 +47,8 @@ jobs:
         run: ./scripts/test-research-cron.ps1
       - name: Test AI request boundaries
         run: node --test scripts/test-ai.mjs
+      - name: Test OTA release boundaries
+        run: node --test scripts/test-ota.mjs
       - name: Apply migrations and test database boundaries
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap.sql

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://skeghmapzrmahxehazlp.supabase.co/ota-manifest.schema.json",
+  "title": "Boomerang Android OTA manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "packageName", "versionCode", "versionName", "minSdk", "apkUrl", "sha256", "sizeBytes", "notes", "publishedAt"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "packageName": { "const": "com.boomerang.app" },
+    "versionCode": { "type": "integer", "minimum": 1, "maximum": 2100000000 },
+    "versionName": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "\\S" },
+    "minSdk": { "type": "integer", "minimum": 26, "maximum": 2100000000 },
+    "apkUrl": {
+      "type": "string",
+      "pattern": "^https://skeghmapzrmahxehazlp\\.supabase\\.co/storage/v1/object/public/app-updates/android/[1-9][0-9]*/app\\.apk$",
+      "description": "The embedded decimal version must equal versionCode exactly; publisher and client enforce this cross-field invariant."
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "sizeBytes": { "type": "integer", "minimum": 1, "maximum": 67108864 },
+    "notes": { "type": "string", "minLength": 1, "maxLength": 4000, "pattern": "\\S" },
+    "publishedAt": { "type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z$" }
+  }
+}

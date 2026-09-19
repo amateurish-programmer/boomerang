@@ -1,6 +1,17 @@
 name: Signed candidate APK
 on:
   workflow_dispatch:
+    inputs:
+      publish_ota:
+        description: 'Publish the verified signed APK to the Boomerang OTA channel'
+        type: boolean
+        required: false
+        default: false
+      ota_notes:
+        description: 'User-facing release notes (required only when publishing OTA)'
+        type: string
+        required: false
+        default: ''
 permissions:
   contents: read
 concurrency:
@@ -21,6 +32,11 @@ jobs:
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify OTA publisher behavior
+        run: node --test scripts/test-ota.mjs
       - name: Validate and build signed candidate
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -42,3 +58,17 @@ jobs:
           name: boomerang-signed-candidate-${{ github.run_number }}
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+      - name: Publish verified APK to OTA channel
+        if: ${{ inputs.publish_ota }}
+        env:
+          BOOMERANG_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.BOOMERANG_SUPABASE_SERVICE_ROLE_KEY }}
+          OTA_NOTES: ${{ inputs.ota_notes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$BOOMERANG_SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$OTA_NOTES"
+          notes_file="$RUNNER_TEMP/boomerang-ota-notes.txt"
+          trap 'rm -f "$notes_file"' EXIT
+          printf '%s' "$OTA_NOTES" > "$notes_file"
+          node scripts/publish-ota.mjs --apk android/app/build/outputs/apk/release/app-release.apk --notes "$notes_file"

@@ -8,6 +8,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.key
 import com.boomerang.app.assistant.AssistantScreen
 import com.boomerang.app.extras.ExtrasScreen
+import com.boomerang.app.updates.UpdateScreen
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Home
@@ -63,6 +64,7 @@ fun BoomerangApp(model: ShellViewModel = viewModel()) {
     }) { padding ->
         val modifier = Modifier.padding(padding)
         when (screen) {
+            "updates" -> UpdateScreen(model::back, modifier)
             "extras" -> Column(modifier.fillMaxSize()) {
                 TextButton(onClick = model::back) { Text("返回") }
                 key(owner) { ExtrasScreen(owner, model::openDetail, Modifier.weight(1f)) }
@@ -75,6 +77,7 @@ fun BoomerangApp(model: ShellViewModel = viewModel()) {
                     model::setQuery, model::setType, model::setResult, model::setSort, model::countdown, model::openEditor, model::openDetail, model::retry, modifier)
                 Destination.AI -> key(owner) { AssistantScreen(owner, model::openAiDraft, model::syncAndOpenDetail, modifier = modifier) }
                 Destination.PROFILE -> Column(modifier.fillMaxSize()) {
+                    TextButton(onClick = model::openUpdates, modifier = Modifier.testTag("open_updates")) { Text("版本与更新") }
                     TextButton(onClick = model::openExtras, enabled = account.ready && !busy) { Text("回顾、分享与备份") }
                     AccountScreen(account, owner, busy, model::signIn, model::signUp, model::signOut, model::sync,
                         model::previewAnonymous, model::importAnonymous, model::resolveConflict, model::openDetail, Modifier.weight(1f))

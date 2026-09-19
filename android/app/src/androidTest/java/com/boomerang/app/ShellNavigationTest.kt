@@ -32,6 +32,17 @@ class ShellNavigationTest {
         compose.onNodeWithTag("account_login").performScrollTo().assertIsDisplayed()
     }
 
+    @Test fun updatesAreReachableWithoutLoginAndSurviveRecreation() {
+        compose.onNodeWithTag("nav_PROFILE").performClick()
+        compose.onNodeWithTag("open_updates").performClick()
+        compose.onNodeWithText("版本与更新").assertIsDisplayed()
+        compose.onNodeWithTag("update_check").assertIsDisplayed()
+        compose.activityRule.scenario.recreate()
+        compose.onNodeWithText("版本与更新").assertIsDisplayed()
+        compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithTag("open_updates").assertIsDisplayed()
+    }
+
     @Test fun localReviewAndBackupEntryReturnsToProfile() {
         compose.onNodeWithTag("nav_PROFILE").performClick()
         compose.onNodeWithText("回顾、分享与备份").performClick()

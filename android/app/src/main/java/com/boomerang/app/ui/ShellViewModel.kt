@@ -179,6 +179,7 @@ class ShellViewModel(application: Application, private val state: SavedStateHand
     }
     fun retry() { if (_account.value.ready) { libraryJob?.cancel(); libraryJob = load() } }
     fun openExtras() { if (_account.value.ready && !_busy.value) state["screen"] = "extras" }
+    fun openUpdates() { state["screen"] = "updates" }
     fun select(destination: Destination) { state["destination"] = destination.name }
     fun setQuery(value: String) { state["query"] = value }
     fun setType(value: String) { state["typeFilter"] = value }
