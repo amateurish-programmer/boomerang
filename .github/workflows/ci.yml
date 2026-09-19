@@ -3,6 +3,14 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      device_apis:
+        description: 'Android API levels: full acceptance or focused reproduction'
+        type: choice
+        options:
+          - '[26,33,35]'
+          - '[35]'
+        default: '[26,33,35]'
 permissions:
   contents: read
 concurrency:
@@ -76,6 +84,10 @@ jobs:
           path: android/app/build/reports/
   device:
     if: github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        api: ${{ fromJSON(inputs.device_apis || '[26,33,35]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -96,13 +108,13 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: ${{ matrix.api }}
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: bash android/gradlew -p android connectedDebugAndroidTest
+          script: bash scripts/test-device.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: device-reports-${{ github.run_number }}
+          name: device-api${{ matrix.api }}-reports-${{ github.run_number }}
           path: android/app/build/reports/androidTests/

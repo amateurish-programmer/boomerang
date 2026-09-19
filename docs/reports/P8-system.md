@@ -1,0 +1,35 @@
+# P8 系统文件与分享验收（0.3.1）
+
+更新：2026-09-19。范围仅为已实现 P8.1 / P8.7 的 Android 系统边界，未扩展产品功能。
+
+## 验收实现
+
+新增 `ExtrasSystemTest`，在已注册的 debug `ComponentActivity` 中承载实际 `ExtrasScreen` 与 `ExtrasViewModel`。UIAutomator 操作系统 DocumentsUI 的 Downloads 提供方，ActivityResult 回调交给生产 ViewModel，读写走实际 ContentResolver，数据保存到真实 Room。没有替换文件选择器、注册合成 DocumentsProvider 或伪造 ActivityResult。
+
+| 用例 | 实际边界和断言 |
+|---|---|
+| `downloadsRoundTripRequiresPreviewAndExplicitConfirmation` | 系统创建 JSON → 本机编辑 → 系统选择已导出文件；预览能读回原话及私人备注；取消和跳过重复均不改记录、修订、队列；用户选择替换后保留旧修订并生成新的队列操作 |
+| `freshRestoreWritesRecordsHistoryAndQueueOnlyAfterConfirmation` | 同一合成空间导出后清空测试库；从 Downloads 选择文件；预览期间无记录和队列，用户确认后恢复来源、历史及待同步操作 |
+| `cancellingSystemPickersLeavesRecordsHistoryAndQueueUnchanged` | 系统导出和导入选择器按返回键取消；当前记录、历史和队列保持不变 |
+| `fileChosenAfterOwnerSwitchCannotPreviewOrImportIntoNewOwner` | 文件选择器打开期间切换本机 owner；旧选择结果不得进入新账号预览，两个测试空间保持隔离 |
+| `exportDestinationReturnedAfterOwnerSwitchReceivesNoAccountData` | 系统保存目标返回前切换 owner；新建系统文件保持 0 字节，重新选择只产生解析错误，不包含任一账号资料 |
+| `contentResolverRejectsCorruptOversizedAndWrongOwnerFilesWithoutWriting` | 使用实际 FileProvider / ContentResolver 读取损坏 JSON、5 MiB + 1 字节及其他 owner 文件；全部不得产生预览和数据库写入 |
+| `pngPreviewUsesRestrictedFileProviderAndOpensSystemChooserOnlyOnClick` | 实际 Canvas PNG 头、尺寸及文字像素，排除私人备注；真实 URI 可读且 MIME 正确，仅授予读权限，应用私有目录不能变成共享 URI；用户点击后才打开系统 ChooserActivity，随后取消 |
+
+全部样例只含合成原话与 `example.org` 来源，不登录、不请求云端、不实际发送到第三方应用。测试使用随机 UUID 数据库与文档文件名；完成后只清理各自测试数据。`database.clearAllTables()` 只在 instrumentation 的合成库恢复用例中使用，生产迁移策略未改动。
+
+账号切换用例覆盖本机 owner 状态与系统回调隔离，不等同于真实双账号登录/邮件或双设备同步验收。分享边界验收到系统分享面板和 FileProvider 可读 URI，没有测试外部接收应用最终发送成功。
+
+## 证据与状态
+
+- 新增 7 项设备用例，所有 JUnit 测试方法显式返回 `Unit`。
+- PNG 和界面截图计划由设备测试保存在应用外部文件目录 `acceptance/`：`p8-apiXX-share-card.png`、`p8-apiXX-share-preview.png`、`p8-apiXX-import-preview.png`、`p8-apiXX-system-chooser.png`；失败附带截图和 UI 层级。
+- 本文初次写入时尚未运行本轮 Gradle 或设备测试，不能将“测试源码已添加”记为通过。主任务统一执行编译及 API 26 / 33 / 35 矩阵，并补充实际用例数量、结果、CI 和视觉核验。
+- 当前未修改生产 extras 实现。若设备运行暴露问题，先保留实际失败证据再作针对性修复。
+
+## 仍待验收
+
+- 本轮设备测试与截图实际结果，待主任务补记。
+- 第三方 DocumentsProvider、真实设备系统文件应用与外部分享接收方仍须真机验收。
+- PNG 文字排版须查看实际截图后记录；像素和文件头断言不等同于视觉通过。
+- 本任务不启用生产 Cron，也不声称百炼、真实 AI 周报或 V1 全部验收通过。
