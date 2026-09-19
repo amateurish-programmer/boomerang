@@ -270,6 +270,18 @@ class ExtrasSystemTest {
                 (it.contains("mResumedActivity") || it.contains("topResumedActivity")) && it.contains("ChooserActivity")
             }
         }
+        // Activity resume precedes the chooser's window/content transition. API 26/33 use
+        // the framework package; API 35 uses IntentResolver, retaining the framework IDs.
+        compose.waitUntil(10_000) {
+            val foreground = device.currentPackageName
+            foreground != null && foreground in setOf("android", "com.android.intentresolver") && (
+                device.hasObject(By.pkg(foreground).res("android", "resolver_list")) ||
+                    device.hasObject(By.pkg(foreground).res("android", "chooser_header")) ||
+                    device.hasObject(By.pkg(foreground).text("分享回旋卡"))
+                )
+        }
+        device.waitForIdle()
+        device.dumpWindowHierarchy(File(evidence, "p8-api${Build.VERSION.SDK_INT}-system-chooser.xml"))
         capture("system-chooser")
         device.pressBack()
         awaitApplication()

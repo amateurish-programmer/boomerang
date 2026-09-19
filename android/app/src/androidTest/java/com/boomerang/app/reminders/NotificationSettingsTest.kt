@@ -1,8 +1,6 @@
 package com.boomerang.app.reminders
 
 import android.content.Context
-import android.content.Intent
-import android.provider.Settings
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -22,11 +20,10 @@ class NotificationSettingsTest {
     @Test fun systemDisabledNotificationsHaveSettingsRouteAndRefreshOnReturn(): Unit {
         val context = ApplicationProvider.getApplicationContext<Context>()
         NotificationSystemFixture(context).use { fixture ->
-            allowSystemNotifications(context)
+            val originallyAllowed = fixture.manager.areNotificationsEnabled()
             try {
               withNotificationFailureEvidence(context, "notification-settings-route-failure") {
-                fixture.device.executeShellCommand("appops set ${context.packageName} POST_NOTIFICATION ignore")
-                waitForSystem { !fixture.manager.areNotificationsEnabled() }
+                setLegacySystemNotifications(context, enabled = false)
                 assertFalse(fixture.manager.areNotificationsEnabled())
                 compose.setContent { BoomerangTheme { NotificationCenter(fixture.owner, {}) } }
                 compose.onNodeWithText("系统通知未开启，提醒仍会保存在这里。").assertIsDisplayed()
@@ -34,29 +31,30 @@ class NotificationSettingsTest {
                 enableNotificationsInSettings(fixture.device, context)
                 compose.waitForIdle()
                 compose.onNodeWithText("系统通知未开启，提醒仍会保存在这里。").assertDoesNotExist()
+                notificationScreenshot(context, "notification-settings-return-enabled")
               }
-            } finally { allowSystemNotifications(context) }
+            } finally { setLegacySystemNotifications(context, originallyAllowed) }
         }
     }
 
     @Test fun returningFromExternalSettingsRefreshesPreviouslyDeniedStatus(): Unit {
         val context = ApplicationProvider.getApplicationContext<Context>()
         NotificationSystemFixture(context).use { fixture ->
-            allowSystemNotifications(context)
+            val originallyAllowed = fixture.manager.areNotificationsEnabled()
             try {
               withNotificationFailureEvidence(context, "notification-settings-return-failure") {
-                fixture.device.executeShellCommand("appops set ${context.packageName} POST_NOTIFICATION ignore")
-                waitForSystem { !fixture.manager.areNotificationsEnabled() }
+                setLegacySystemNotifications(context, enabled = true)
                 compose.setContent { BoomerangTheme { NotificationCenter(fixture.owner, {}) } }
+                compose.onNodeWithText("系统通知未开启，提醒仍会保存在这里。").assertDoesNotExist()
+                setLegacySystemNotifications(context, enabled = false)
+                compose.waitForIdle()
                 compose.onNodeWithText("系统通知未开启，提醒仍会保存在这里。").assertIsDisplayed()
-                // Opening Settings independently also catches stale remembered state when the route is absent.
-                context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                enableNotificationsInSettings(fixture.device, context)
+                notificationScreenshot(context, "notification-settings-return-disabled")
+                setLegacySystemNotifications(context, enabled = true)
                 compose.waitForIdle()
                 compose.onNodeWithText("系统通知未开启，提醒仍会保存在这里。").assertDoesNotExist()
               }
-            } finally { allowSystemNotifications(context) }
+            } finally { setLegacySystemNotifications(context, originallyAllowed) }
         }
     }
 }

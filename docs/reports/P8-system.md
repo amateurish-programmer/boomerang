@@ -49,3 +49,15 @@
 [CI35443222393](https://github.com/amateurish-programmer/boomerang/actions/runs/35443222393) 的 Android 与后端检查通过。API26/33模拟器创建用户数据分区时磁盘不足（分别余7123.94/2518.71MB，需要7372.80MB），未执行应用测试；不计入通过或失败用例数。API35已取得报告与截图：Pixel Launcher无响应弹窗挡住权限弹窗和DocumentsUI，导致权限1项及P8的6项失败；通知点击2项和Worker4项通过。截图实际查看确认该系统弹窗，未发现据此需要修改产品代码的证据。
 
 本轮环境修正：Kotlin编译移到模拟器启动前，停止预编译守护进程，设备阶段单worker/2GiB构建堆；测试数据分区限定2GiB，并只在GitHub临时runner删除本项目不用的NDK目录以留足空间。收集系统ANR、内存、CPU、磁盘诊断；不关闭ANR提示、不自动忽略失败、所有业务断言保留。2GiB分区为启动器[官方支持参数](https://github.com/ReactiveCircus/android-emulator-runner#configurations)。API35负载重叠已确认，但缺少当时资源采样，不能断言是内存不足导致系统桌面ANR。修正后的矩阵待执行。
+
+## 环境修正后的 P8 执行与截图补正
+
+[CI 35444006687](https://github.com/amateurish-programmer/boomerang/actions/runs/35444006687) 已取得 API 35 和 API 26 的 P8 HTML 报告：两套设备的 7 项 P8 用例均通过，0 失败、0 跳过。API 35 的完整设备集为 42/42 通过；API 26 的其他模块结果由主任务单独记录，不能由 P8 结果推定整套矩阵通过。API 33 本次结果仍待补记。
+
+主任务已查看实际回旋卡 PNG 与导入预览截图，文字和布局可读；但 API 35 的 `system-chooser.png` 与 `share-preview.png` 相同，仍是应用内预览，API 26 也出现同样的过早截图。已核对 API 35 图片，不能将这两张旧图用作系统分享面板的视觉证据；原测试仅证实 ChooserActivity 已成为 resumed activity，截图时界面转换尚未完成。
+
+本次仅补正测试的截图时机：保留原 ChooserActivity 断言，再在 10 秒上限内等待实际前台包为 `android` 或 `com.android.intentresolver`，同时找到该包中的系统分享列表、分享页头或“分享回旋卡”标题，待 UI 空闲后导出窗口 XML 再截图。包名和布局依据 [AOSP API 26 分享布局](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-8.0.0_r1/core/res/res/layout/chooser_grid.xml)、[API 33 分享布局](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-13.0.0_r1/core/res/res/layout/chooser_grid.xml)、[API 35 IntentResolver 清单](https://android.googlesource.com/platform/packages/modules/IntentResolver/+/refs/heads/android15-release/AndroidManifest-app.xml)及[分享布局](https://android.googlesource.com/platform/packages/modules/IntentResolver/+/refs/heads/android15-release/java/res/layout/chooser_grid_scrollable_preview.xml)核对；API 35 本轮设备诊断也实际记录了 `com.android.intentresolver` 进程。
+
+新增证据为 `acceptance/p8-apiXX-system-chooser.xml`。本次补正未更改生产代码或原业务断言，没有固定等待时间、关闭 ANR 提示或点击分享接收方；修正后的编译、设备重跑及系统分享面板新图仍待主任务验证。
+
+API26兼容与截图补正后，本地84 JVM用例、Lint、Debug/设备测试APK编译通过（`.tools/api26-compat-build.log`，55s），独立静态复查无阻塞项。最终设备矩阵及新签名包待补。

@@ -8,7 +8,7 @@
 
 已完成通知页面的最小修复：每次恢复前台及权限回调时重新读取系统实际通知状态；所有支持的 Android 版本在通知关闭时提供系统设置入口。Worker 和生产通知路由没有修改。
 
-新增测试在本地编译通过后运行了 API 35 基线；其中 4 项 Worker 用例通过，权限页面用例与通知点击用例仍有下述失败。已根据失败定位修正测试生命周期清理、细分权限页面断言并保存失败现场；最新变更等待主任务重新编译与 API 26/33/35 矩阵，不能标记系统边界验收通过。
+已根据基线失败修正测试生命周期清理、细分权限页面断言并保存失败现场。第二轮矩阵 API 35 的全量 41 项及独立权限 1 项全部通过；API 26 实际执行 43 项、10 项失败，定位到通知数据库的旧系统关闭接口兼容问题及两个设置测试的前置条件错误。现已做最小兼容修复并将旧系统设置测试改为真实总开关操作，等待主任务重编译与设备复验，不能标记系统边界验收全部通过。
 
 ## 定位结果
 
@@ -29,7 +29,7 @@
 
 权限用例必须单独运行：在启动 instrumentation 之前，由设备执行脚本撤销 `POST_NOTIFICATIONS` 并清理 `user-set`/`user-fixed`，避免测试进程内撤权终止自身。其他测试运行前允许系统通知，结束时恢复测试改变的权限/账号状态。权限测试兼容 AOSP 与 Google 镜像的权限控制器包名。
 
-独立设置用例通过 AppOps 构造 Android 13 以前的关闭状态，因此明确限制在 API 26–32；API 33 以上 `areNotificationsEnabled` 根据运行时权限判断，由真实权限用例覆盖。基线测试最初未加该版本限制；若 API 33/35 出现其设置准备失败，属于测试前置条件错误，不能记录为产品回归。
+独立设置用例针对 API 26–32，直接打开系统设置、操作应用通知总 SwitchBar 并以 `NotificationManager.areNotificationsEnabled()` 回读，结束时恢复原开关状态并返回原页面；定位限定在总 SwitchBar 内，不能误点通知渠道或角标开关。API 33 以上由真实运行时权限用例覆盖。前期 AppOps 准备方式在 API 26/35 均未构造出所需系统状态，已移除；这些准备失败不能记录为产品回归。
 
 截图保存在目标应用外部文件目录 `acceptance/`，覆盖权限拒绝、开启后的通知中心、真实系统通知栏以及点击后的详情。失败时在清理前保存截图、UI XML 和 Activity 状态；权限页面另存当前阶段、ViewModel 记录 ID、错误状态及 Compose 语义树。文件生成不等于已视觉检查，待主任务下载并检查。
 
@@ -64,3 +64,15 @@
 [CI35443222393](https://github.com/amateurish-programmer/boomerang/actions/runs/35443222393) 的 Android 与后端检查通过。API26/33模拟器创建用户数据分区时磁盘不足（分别余7123.94/2518.71MB，需要7372.80MB），未执行应用测试；不计入通过或失败用例数。API35已取得报告与截图：Pixel Launcher无响应弹窗挡住权限弹窗和DocumentsUI，导致权限1项及P8的6项失败；通知点击2项和Worker4项通过。截图实际查看确认该系统弹窗，未发现据此需要修改产品代码的证据。
 
 本轮环境修正：Kotlin编译移到模拟器启动前，停止预编译守护进程，设备阶段单worker/2GiB构建堆；测试数据分区限定2GiB，并只在GitHub临时runner删除本项目不用的NDK目录以留足空间。收集系统ANR、内存、CPU、磁盘诊断；不关闭ANR提示、不自动忽略失败、所有业务断言保留。2GiB分区为启动器[官方支持参数](https://github.com/ReactiveCircus/android-emulator-runner#configurations)。API35负载重叠已确认，但缺少当时资源采样，不能断言是内存不足导致系统桌面ANR。修正后的矩阵待执行。
+
+## 第二轮矩阵与 API 26 兼容修复
+
+[CI 35444006687](https://github.com/amateurish-programmer/boomerang/actions/runs/35444006687) 已在 API 26 实际运行应用测试。报告保存在 `.tools/acceptance-matrix-second/device-api26-reports-19/`，API 35 报告在同级 `device-api35-reports-19/`。
+
+- API 35：全量 41/41、独立权限 1/1，通过且无跳过，确认真实权限拒绝后收件箱、从设置开启返回刷新、系统通知点击与账号隔离闭环。该结果针对关闭接口兼容修复之前的代码，最新代码仍需回归。
+- API 26：43 项、10 失败。两个既有通知库/通知中心用例直接抛出 `NotificationRepository cannot be cast to java.lang.AutoCloseable`；4 个 Worker 用例返回 `Retry`，2 个真实通知点击用例也受阻。生产 Worker 中的通知库 `use` 包在异常重试分支内，接口转换异常可解释这些 `Retry`，修复后设备复验仍需确认。
+- [Android 8 的 SQLiteOpenHelper](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-8.0.0_r1/core/java/android/database/sqlite/SQLiteOpenHelper.java) 有 `close()` 方法但没有实现关闭接口；编译新 SDK 后 Kotlin `use` 所依赖的接口转换在旧系统失败。`NotificationRepository` 现显式实现 `java.io.Closeable`，继续使用父类原有 `close()`；数据库名、版本、SQL、去重键与 Worker 投递逻辑均未修改。既有 API 26 失败用例构成实际回归失败证据，无需添加只检查接口名的重复测试。
+- API 26 两个设置用例失败在 AppOps 准备阶段。已实际查看失败 PNG/XML：画面停留在空测试 Activity，尚未打开系统设置。测试现通过真实设置总开关关闭/开启，并检查返回后的同一 Compose 页面；保留 API 26 用例，不跳过低版本。
+- 本次生产兼容变更需要重新构建签名候选；本子任务未运行 Gradle 或操作 Git，由主任务统一编译、矩阵和签名交付。当前 API 26 修复后通过尚未取得。
+
+API26兼容与截图补正后，本地84 JVM用例、Lint、Debug/设备测试APK编译通过（`.tools/api26-compat-build.log`，55s），独立静态复查无阻塞项。最终设备矩阵及新签名包待补。
