@@ -92,6 +92,16 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Free unused native toolchains on ephemeral runner
+        run: |
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          sdk_path=$(realpath "$ANDROID_HOME")
+          test "$sdk_path" = /usr/local/lib/android/sdk
+          # This Kotlin-only project does not build NDK components.
+          if [ -d "$sdk_path/ndk" ]; then
+            du -sh "$sdk_path/ndk"
+            rm -rf -- "$sdk_path/ndk"
+          fi
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -106,11 +116,17 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Compile device APKs before starting emulator
+        run: |
+          bash android/gradlew -p android assembleDebug assembleDebugAndroidTest --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8' -Pkotlin.compiler.execution.strategy=in-process
+          bash android/gradlew -p android --stop
+          df -h "$HOME" "$ANDROID_HOME"
       - uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api }}
           target: google_apis
           arch: x86_64
+          disk-size: 2048M
           disable-animations: true
           script: bash scripts/test-device.sh
       - uses: actions/upload-artifact@v4
