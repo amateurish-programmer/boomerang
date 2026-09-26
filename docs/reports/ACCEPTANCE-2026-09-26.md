@@ -41,6 +41,8 @@ vivo V2430A，Android16/API36，ADB设备已授权，实际本机日期2026-09-2
 
 本次20操作API合约、Cron脚本5项检查、26项AI边界及16项OTA发布器行为测试通过。执行 `bash android/gradlew -p android testDebugUnitTest lintDebug assembleDebug --max-workers=1`，5分16秒成功：98项JVM、0失败/错误/跳过，Lint为0错误、22警告，Debug APK构建通过。使用本项目临时B盘映射绕过中文路径；现有R盘属于其他项目，未更改。构建日志在 `.tools/acceptance-20260926/android-verification.log`。没有运行手机instrumentation，也没有将Debug包安装到用户手机。
 
-文档链接、脱敏结果结构和凭据模式检查通过，`git diff --check`通过。独立审查指出的历史段落归属及“响应丢失”歧义均已修正：本次只是重放相同操作，未注入真实网络丢包。前序基线CI [35449047215](https://github.com/amateurish-programmer/boomerang/actions/runs/35449047215)已核对成功，非本轮新增CI。阶段提交和新CI在发布后补录；不将前序成功冒充本次结果。
+文档链接、脱敏结果结构和凭据模式检查通过，`git diff --check`通过。独立审查指出的历史段落归属及“响应丢失”歧义均已修正：本次只是重放相同操作，未注入真实网络丢包。
+
+阶段签名提交 `3032be732a64843c6713183b4f87d6c4f6e95a91` 已发布main（GitHub签名标记unknown_key，不称Verified）。本次 [CI 36207231994](https://github.com/amateurish-programmer/boomerang/actions/runs/36207231994) 成功：Android测试/静态检查/构建及contracts任务全部通过，后者包含隔离PostgreSQL迁移、双用户权限、研究队列与接口边界。本次push未触发模拟器矩阵，device为skipped，未算作通过；原矩阵证据见OTA报告。后续仅补录本段CI结果与进度，不改变已验证产品代码或APK。
 
 待可用手机窗口继续阶段1–2；随后账号界面/两台真机、本人邮件验证、厂商重启和长期后台、第三方文件提供方/分享接收分别验收。百炼配置仍为外部前置条件。以上未验收项均未标为通过，也未标记V1全量完成。
