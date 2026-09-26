@@ -35,5 +35,95 @@
     "remaining_synthetic_source_revisions": 0,
     "remaining_synthetic_sessions": 0,
     "remaining_synthetic_operations": 0
+  },
+  "phone_account_validation": [
+    {
+      "metadata_scope_verified": true,
+      "counts": [
+        {
+          "controlled_record_count": 0,
+          "label": "A",
+          "record_count": 0,
+          "revision_count": 0,
+          "source_count": 0
+        },
+        {
+          "controlled_record_count": 0,
+          "label": "B",
+          "record_count": 0,
+          "revision_count": 0,
+          "source_count": 0
+        }
+      ],
+      "date": "2026-09-26T09:32:54.793573+08:00",
+      "stage": "before_import",
+      "run_id": "4ec506d9-e5f6-45df-b845-07f11c1d7a82",
+      "project": "skeghmapzrmahxehazlp"
+    },
+    {
+      "counts": [
+        {
+          "capsule_exact": true,
+          "controlled_record_count": 1,
+          "dates_exact": true,
+          "label": "A",
+          "original_text_exact": true,
+          "private_note_exact": true,
+          "record_count": 1,
+          "revision_count": 1,
+          "source_count": 0,
+          "unexpected_record_count": 0
+        },
+        {
+          "capsule_exact": false,
+          "controlled_record_count": 0,
+          "dates_exact": false,
+          "label": "B",
+          "original_text_exact": false,
+          "private_note_exact": false,
+          "record_count": 0,
+          "revision_count": 0,
+          "source_count": 0,
+          "unexpected_record_count": 0
+        }
+      ],
+      "date": "2026-09-26T09:34:18.0829199+08:00",
+      "run_id": "4ec506d9-e5f6-45df-b845-07f11c1d7a82",
+      "project": "skeghmapzrmahxehazlp",
+      "stage": "after_import",
+      "assertions_passed": true,
+      "metadata_scope_verified": true
+    }
+  ],
+  "phone_account_cleanup": {
+    "project": "skeghmapzrmahxehazlp",
+    "passed": true,
+    "date": "2026-09-26T09:36:02.444818+08:00",
+    "run_id": "4ec506d9-e5f6-45df-b845-07f11c1d7a82",
+    "counts": {
+      "enabled_history_guards": 2,
+      "operations": 0,
+      "record_revisions": 0,
+      "records": 0,
+      "sessions": 0,
+      "source_revisions": 0,
+      "sources": 0,
+      "users": 0
+    },
+    "encrypted_credentials_removed": true
+  },
+  "reboot": {
+    "requested_at": "2026-09-26T09:35:45.0148407+08:00",
+    "boot_count_before": "80",
+    "authorization": "User explicitly authorized reboot and lockscreen test",
+    "local_record_count_before": 3,
+    "boot_count_after": "81",
+    "boot_completed": "1",
+    "user_unlocked_at": "2026-09-26T09:37:52.0873895+08:00"
+  },
+  "short_background": {
+    "elapsed_seconds": 67,
+    "notification_count": 1,
+    "keys_unchanged": true
   }
 }
