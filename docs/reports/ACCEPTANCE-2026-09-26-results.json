@@ -1,0 +1,39 @@
+{
+  "evidence_limitations": [
+    "The raw response-loss idempotent replay label means replaying the same operation; no network response was deliberately dropped.",
+    "Two independent authenticated sessions are not two physical Android phones; no email delivery or real AI provider acceptance occurred."
+  ],
+  "cloud": {
+    "passed_assertions": 10,
+    "stages": [
+      "A1/A2 independently authenticated same-user sessions",
+      "record create and response-loss idempotent replay",
+      "two-user record RLS isolation",
+      "A1 update advances revision to two",
+      "A2 stale update returns 409 and preserves A1 data",
+      "A2 explicit revision retry and immutable three-version history",
+      "source sync idempotency and two-user RLS isolation",
+      "source history and atomic record-source snapshot",
+      "foreign snapshot and unowned candidate rejected",
+      "anonymous 401, missing provider 503, user-token worker 401"
+    ],
+    "smoke_passed": true,
+    "cleanup_passed": true,
+    "date": "2026-09-26T08:57:41.3178549+08:00",
+    "scope": "Real HTTPS, two synthetic users, two sessions for one user; not two physical phones; no email delivery or real provider acceptance",
+    "synthetic_users_created": 2,
+    "project": "skeghmapzrmahxehazlp"
+  },
+  "cleanup": {
+    "project": "skeghmapzrmahxehazlp",
+    "remaining_synthetic_users": 0,
+    "enabled_history_guards": 2,
+    "remaining_synthetic_records": 0,
+    "verified_at": "2026-09-26T08:58:38.7222463+08:00",
+    "remaining_synthetic_sources": 0,
+    "remaining_synthetic_revisions": 0,
+    "remaining_synthetic_source_revisions": 0,
+    "remaining_synthetic_sessions": 0,
+    "remaining_synthetic_operations": 0
+  }
+}
