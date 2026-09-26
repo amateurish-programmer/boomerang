@@ -22,4 +22,8 @@
 
 [GREEN CI 36210972879](https://github.com/amateurish-programmer/boomerang/actions/runs/36210972879) 全部成功：Android构建及后端隔离检查通过，API26/33/35分别50/49/49项设备测试通过，0失败/跳过，包含三条恢复观察回归。API33/35数量包含独立执行的1条通知权限用例。完整报告已下载核对。
 
-签名APK/OTA发布及vivo升级后恢复继续进行，尚未宣称真机缺陷已关闭。
+整合提交 `c06d0d501dcb959eec2135c6e107e1e4f1eb2fd0` 只追加验证报告，产品代码与矩阵完全一致。[主分支CI 36211451337](https://github.com/amateurish-programmer/boomerang/actions/runs/36211451337) 成功；[签名发布 36211459882](https://github.com/amateurish-programmer/boomerang/actions/runs/36211459882) 成功，包含发布器16项测试、Android单元测试/Lint/Release构建、签名校验与云端发布。签名提交在GitHub显示unknown_key，不称Verified。
+
+公开清单已提升至0.4.2/code7，固定路径 `android/7/app.apk`，11,815,931字节，SHA256 `7ce6fc097459b0f5baddbabbbb23a6e9b33d9855a7211363ae06b28c5b5b8904`；证书SHA256 `748d6f30358c0be6b96e1ae29cd2538659f7b8f09ac1a40649f20bf26f08afd2`。公开APK重新下载并使用apksigner/aapt核对通过，交付 `dist/0.4.2/boomerang-0.4.2.apk`。GitHub产物下载在本机长时间未完成，取消该只读下载并改为核验公开发布包，未将下载失败声称为成功。
+
+手机从应用内检测、下载、校验0.4.2后进入vivo系统安装；用户完成身份验证。10:26:59实际升级到code7，首次安装时间仍为9月17日，原胶囊记录可见；从已安装包读取的SHA256与公开APK一致，没有USB安装、卸载或清数据。进入恢复文件选择器时手机切到其他应用，立即停止后续触控并等待可用窗口。新增/替换恢复的实际UI验收仍待执行，不以模拟器替代真机闭环。
