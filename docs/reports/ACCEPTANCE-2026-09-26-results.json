@@ -125,5 +125,22 @@
     "elapsed_seconds": 67,
     "notification_count": 1,
     "keys_unchanged": true
+  },
+  "phone_lock_observation": {
+    "started_at": "2026-09-26T09:38:36.4604925+08:00",
+    "planned_seconds": 600,
+    "boot_count": 81,
+    "method": "KEYCODE_SLEEP; no battery-policy changes or forced job execution",
+    "observed_seconds": 626,
+    "ended_at": "2026-09-26T09:49:02.4817465+08:00",
+    "power_state_before_wake": "mWakefulness=Asleep",
+    "usb_powered": true
+  },
+  "phone_deadline_withdrawal": {
+    "record_id": "bca648f9-25cd-44d6-b974-aa04f387270c",
+    "notification_present_before_edit": true,
+    "due_after": "2026-10-04",
+    "notification_count_after": 0,
+    "verified_at": "2026-09-26T10:00:43.6844220+08:00"
   }
 }

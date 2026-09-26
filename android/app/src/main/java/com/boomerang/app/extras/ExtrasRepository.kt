@@ -6,6 +6,10 @@ import com.boomerang.app.domain.CapsulePolicy
 import org.json.JSONObject
 import java.time.Clock
 import java.util.UUID
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 
 data class ImportPreview(val backup: Backup, val existing: Map<String, Long?>) {
     val conflicts get() = existing.count { it.value != null }
@@ -26,7 +30,18 @@ class ExtrasRepository(private val database: BoomerangDatabase, private val owne
         val backup = BackupCodec.decode(bytes, owner)
         return database.withTransaction { ImportPreview(backup, backup.records.associate { it.record.id to dao.get(it.record.id)?.localRevision }) }
     }
-    suspend fun importBackup(preview: ImportPreview, choice: ImportChoice): Int = database.withTransaction {
+    suspend fun importBackup(preview: ImportPreview, choice: ImportChoice): Int {
+        currentCoroutineContext().ensureActive()
+        // Once started, finish both the atomic import and its notification, even if the screen closes.
+        // Otherwise cancellation after COMMIT could leave an already observing library stale.
+        return withContext(NonCancellable) {
+            val count = importTransaction(preview, choice)
+            if (count > 0) RecordInvalidations.committed(owner)
+            count
+        }
+    }
+
+    private suspend fun importTransaction(preview: ImportPreview, choice: ImportChoice): Int = database.withTransaction {
         require(preview.backup.owner == owner)
         // Parse the entire object again before the first write; no partial import on late validation errors.
         val checked = BackupCodec.decode(BackupCodec.encode(preview.backup), owner)

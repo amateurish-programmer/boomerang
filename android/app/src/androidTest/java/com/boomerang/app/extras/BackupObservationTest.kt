@@ -5,6 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.boomerang.app.data.*
 import com.boomerang.app.domain.RecordContent
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -16,6 +18,9 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import java.util.UUID
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
 
 /** Exercises the long-lived library reader and short-lived Extras writer used by the app. */
 class BackupObservationTest {
@@ -91,7 +96,40 @@ class BackupObservationTest {
         }
     }
 
-    private suspend fun importThroughSeparateInstances(detail: RecordDetail, choice: ImportChoice): Int {
+    @Test fun cancellationDuringImportStillPublishesCommittedRecordBeforeWriterCloses() = runBlocking {
+        val incoming = backupRecord(UUID.randomUUID().toString())
+        val emissions = Channel<List<RecordEntity>>(Channel.UNLIMITED)
+        val collection = launch { records.observeRecords().collect { emissions.send(it) } }
+        var importer: Job? = null
+        // Fault injection at the first transaction timestamp, before the first write suspends.
+        val cancellationClock = object : Clock() {
+            override fun getZone(): ZoneId = ZoneId.of("UTC")
+            override fun withZone(zone: ZoneId): Clock = this
+            override fun instant(): Instant {
+                importer!!.cancel()
+                return Instant.parse("2026-02-01T00:00:00Z")
+            }
+        }
+        try {
+            assertTrue(withTimeout(5_000) { emissions.receive() }.isEmpty())
+            importer = launch(start = CoroutineStart.LAZY) {
+                importThroughSeparateInstances(incoming, ImportChoice.SKIP_EXISTING, cancellationClock)
+            }
+            importer!!.start()
+            withTimeout(5_000) { importer!!.join() }
+            assertTrue(importer!!.isCancelled)
+            assertEquals(3, records.detail(incoming.record.id)!!.history.size)
+            assertNotNull("Cancellation must not separate a completed import from its library notification",
+                awaitRecord(emissions, incoming.record.id, "restored version two"))
+        } finally {
+            importer?.cancelAndJoin()
+            collection.cancelAndJoin()
+            emissions.close()
+        }
+    }
+
+    private suspend fun importThroughSeparateInstances(detail: RecordDetail, choice: ImportChoice,
+        clock: Clock = Clock.systemUTC()): Int {
         val bytes = BackupCodec.encode(Backup(owner, listOf(detail)))
         val previewDatabase = BoomerangDatabase.open(context, owner)
         val preview = try {
@@ -102,7 +140,7 @@ class BackupObservationTest {
         val writer = BoomerangDatabase.open(context, owner)
         assertNotSame(reader, writer)
         return try {
-            ExtrasRepository(writer, owner).importBackup(preview, choice)
+            ExtrasRepository(writer, owner, clock).importBackup(preview, choice)
         } finally {
             // ExtrasViewModel closes the import database immediately; do not wait for notification.
             writer.close()

@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.Clock
 import java.util.UUID
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flatMapLatest
 
 data class RecordDetail(val record: RecordEntity, val sources: List<SourceEntity>, val history: List<RevisionEntity>)
 class ValidationException(val errors: Map<String, String>) : IllegalArgumentException("请检查填写内容")
@@ -19,7 +21,10 @@ class BoomerangRepository(
     private val clock: Clock = Clock.systemUTC(),
 ) {
     private val dao = database.records()
-    fun observeRecords(): Flow<List<RecordEntity>> = dao.observeActive().map { rows -> rows.filter { it.ownerNamespace == ownerNamespace } }
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observeRecords(): Flow<List<RecordEntity>> = RecordInvalidations.observe(ownerNamespace)
+        .flatMapLatest { dao.observeActive() }
+        .map { rows -> rows.filter { it.ownerNamespace == ownerNamespace } }
     suspend fun detail(id: String): RecordDetail? = database.withTransaction {
         val record = dao.get(id)?.takeIf { it.ownerNamespace == ownerNamespace } ?: return@withTransaction null
         RecordDetail(record, dao.sources(id), dao.history(id))
