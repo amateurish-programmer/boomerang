@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -57,7 +58,7 @@ fun UpdateScreen(onBack: () -> Unit, modifier: Modifier = Modifier, model: Updat
 fun UpdateContent(state: UpdateUiState, onBack: () -> Unit, onCheck: () -> Unit, onDownload: () -> Unit,
     onCancel: () -> Unit, onPermission: () -> Unit, onInstall: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("返回") }
+        TextButton(onClick = onBack, modifier = Modifier.heightIn(min = 48.dp)) { Text("返回") }
         InkPageTitle("版本与更新", "安装包将经完整性与签名校验")
         Text("当前版本：${state.currentVersion}", modifier = Modifier.testTag("update_current_version"))
         if (state.stage == UpdateStage.IDLE) InkPrimaryAction("检查更新", Modifier.testTag("update_check"), !state.busy, onCheck)

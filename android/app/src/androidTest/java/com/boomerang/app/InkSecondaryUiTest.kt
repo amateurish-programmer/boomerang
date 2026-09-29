@@ -83,7 +83,7 @@ class InkSecondaryUiTest {
                 modifier = Modifier.height(360.dp).testTag("bounded_import_dialog")) }
         } }
         val actualHeight = compose.onNodeWithTag("bounded_import_dialog").fetchSemanticsNode().boundsInRoot.height
-        assertTrue(actualHeight <= 360 * compose.activity.resources.displayMetrics.density + 1)
+        assertTrue(actualHeight > 0 && actualHeight <= 360 * compose.activity.resources.displayMetrics.density + 1)
         compose.onNodeWithText("合成记录 4：这是一段用来检查长预览滚动的原话。").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("替换重复并导入").assertDoesNotExist()
         compose.onNodeWithText("取消").performScrollTo().assertIsDisplayed().performClick()
@@ -105,8 +105,8 @@ class InkSecondaryUiTest {
         var scale by mutableFloatStateOf(1f)
         var state by mutableStateOf(UpdateUiState(currentVersion = "0.4.2 (7)", stage = UpdateStage.AVAILABLE, manifest = manifest))
         compose.setContent { CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, scale)) {
-            BoomerangTheme(dark) { Surface(Modifier.fillMaxSize()) {
-                UpdateContent(state, {}, {}, {}, {}, {}, {}, if (scale == 2f) Modifier.height(360.dp) else Modifier)
+            BoomerangTheme(dark) { Surface(if (scale == 2f) Modifier.fillMaxWidth().height(360.dp) else Modifier.fillMaxSize()) {
+                UpdateContent(state, {}, {}, {}, {}, {}, {}, Modifier.testTag("update_viewport"))
             } }
         } }
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -115,7 +115,12 @@ class InkSecondaryUiTest {
         capture("update-light-synthetic")
         compose.runOnIdle { dark = true }; capture("update-dark-synthetic")
         compose.runOnIdle { dark = false; scale = 2f; state = state.copy(stage = UpdateStage.READY, canInstall = false) }
+        val actualHeight = compose.onNodeWithTag("update_viewport").fetchSemanticsNode().boundsInRoot.height
+        assertTrue(actualHeight > 0 && actualHeight <= 360 * compose.activity.resources.displayMetrics.density + 1)
         compose.onNodeWithTag("update_permission").performScrollTo().assertIsDisplayed()
         capture("update-large-text-short-synthetic")
+        compose.runOnIdle { state = state.copy(canInstall = true) }
+        compose.onNodeWithTag("update_install").performScrollTo().assertIsDisplayed()
+        capture("update-large-text-short-install-synthetic")
     }
 }
