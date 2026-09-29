@@ -95,6 +95,35 @@ export async function publishOta({ apk, metadata, notes, serviceKey, fetchImpl =
   const expectOk = result => { if (!result.ok) fail(`Storage operation failed (HTTP ${result.status}).`); return result; };
   const object = key => `/object/app-updates/${key}`;
   const jsonWrite = (path, value, method = 'POST', upsert = false) => request(path, { method, body: Buffer.from(JSON.stringify(value)), headers: { 'content-type': 'application/json', 'cache-control': 'max-age=0', 'x-upsert': String(upsert) } });
+  // Enumerate before removing anything: deleting during offset pagination can
+  // skip entries. Only this publisher's exact version/app.apk objects qualify.
+  let listRequests = 0;
+  const list = async prefix => {
+    const entries = [];
+    const seen = new Set();
+    for (let offset = 0; ; offset += 100) {
+      if (++listRequests > 1000) fail('OTA inventory exceeds the bounded cleanup limit.');
+      const response = expectOk(await jsonWrite('/object/list/app-updates', { prefix, limit: 100, offset, sortBy: { column: 'name', order: 'asc' } }));
+      let page;
+      try { page = JSON.parse(response.bytes); } catch { fail('Invalid OTA inventory.'); }
+      if (!Array.isArray(page) || page.length > 100) fail('Invalid OTA inventory.');
+      for (const entry of page) {
+        if (!entry || typeof entry.name !== 'string' || !entry.name || /[\\/\x00-\x1f]/.test(entry.name) || ['.', '..'].includes(entry.name) || seen.has(entry.name) || (entry.id !== null && (typeof entry.id !== 'string' || !entry.id))) fail('Invalid OTA inventory entry.');
+        seen.add(entry.name);
+        entries.push(entry);
+      }
+      if (page.length < 100) return entries;
+    }
+  };
+  const inventoryApks = async () => {
+    const keys = [];
+    for (const entry of await list('android')) {
+      if (entry.id !== null || !/^[1-9][0-9]*$/.test(entry.name) || !isInt(Number(entry.name), 1)) continue;
+      const prefix = `android/${entry.name}`;
+      if ((await list(prefix)).some(file => file.name === 'app.apk' && file.id !== null)) keys.push(`${prefix}/app.apk`);
+    }
+    return keys;
+  };
   const bucket = await request('/bucket/app-updates');
   if (missing(bucket.status, bucket.bytes)) {
     // Omit a per-bucket limit to inherit the enforced tenant global limit. The
@@ -132,6 +161,20 @@ export async function publishOta({ apk, metadata, notes, serviceKey, fetchImpl =
     let confirmed;
     try { confirmed = validateManifest(JSON.parse(published.bytes)); } catch { fail('Published manifest public verification failed.'); }
     if (Object.keys(expected).some(key => confirmed[key] !== expected[key])) fail('Published manifest public verification mismatch.');
+    // Keep the lock through cleanup. A failed publish above preserves all prior
+    // packages; a failed cleanup below is retriable with the identical release.
+    const inventory = await inventoryApks();
+    if (!inventory.includes(key)) fail('Latest APK is missing from the authenticated inventory.');
+    const current = expectOk(await request(object('android/latest.json')));
+    let currentManifest;
+    try { currentManifest = validateManifest(JSON.parse(current.bytes)); } catch { fail('Latest manifest changed before cleanup.'); }
+    if (Object.keys(expected).some(field => currentManifest[field] !== expected[field])) fail('Latest manifest changed before cleanup.');
+    const obsolete = inventory.filter(path => path !== key);
+    for (let start = 0; start < obsolete.length; start += 100) {
+      expectOk(await jsonWrite('/object/app-updates', { prefixes: obsolete.slice(start, start + 100) }, 'DELETE'));
+    }
+    const remaining = await inventoryApks();
+    if (remaining.length !== 1 || remaining[0] !== key) fail('OTA cleanup incomplete; retry the identical release.');
     return expected;
   } finally {
     expectOk(await request(object('android/publish.lock'), { method: 'DELETE' }));

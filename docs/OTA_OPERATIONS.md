@@ -38,14 +38,21 @@ node scripts/publish-ota.mjs --apk dist/0.4.1/boomerang-0.4.1.apk --notes dist/0
 4. 上传 `android/<versionCode>/app.apk`，`x-upsert=false`，原始请求体使用完整 HTTP 头 `Cache-Control: max-age=31536000, immutable`。已有文件不能覆盖；中断重试必须验证已有公开文件与本次 APK 的长度和 SHA256 完全一致。
 5. 不带凭据读取公开 APK，流式限制响应体积并验证字节数、SHA256；禁止重定向。任何失败均不更新清单。
 6. 最后提升 `android/latest.json`，原始请求体使用 `Cache-Control: max-age=0`，再从公开地址校验清单。相同版本和相同内容重试保留原始发布时间，并同样重新验证公开清单。响应大小限制始终作用于解压后的字节，压缩响应不把网络传输长度误当为解压长度。原始二进制/JSON 上传必须提供完整缓存指令，不能使用 multipart SDK 的纯数字缓存时间形式。
-7. 在成功或异常路径释放本次取得的锁。每次请求（含响应读取）最多 120 秒，无无限重试。若进程被杀死、断电或释放锁的请求失败，锁可能保留；不能仅凭锁年龄判断原发布已停止。
+7. 公开清单与APK校验成功后，在同一发布锁内完整分页列举 `android/<正整数versionCode>/app.apk`，再次核对认证清单未变化，再按每批最多100个精确对象路径删除非当前包。清理包括旧版与中断发布遗留包，不删除其他文件或其他桶。删除后重新列举，必须只剩当前APK才报告成功。列举最多1000次请求，异常或不完整结果停止；不会边翻页边删除。
+8. 在成功或异常路径释放本次取得的锁。每次请求（含响应读取）最多 120 秒，无无限重试。若进程被杀死、断电或释放锁的请求失败，锁可能保留；不能仅凭锁年龄判断原发布已停止。
 
-恢复遗留锁时，先确认 GitHub 和所有本机发布进程已经结束，并检查公开 `latest.json` 及目标版本 APK。只有确认没有活动发布者后，使用本项目 Supabase 控制台删除单个 `app-updates/android/publish.lock`，再重试。不要清空桶或删除已发布版本。上传已成功但清单未提升的 APK 可以保留，重试会验证它；同版本有冲突则分配更大的版本号。
+恢复遗留锁时，先确认 GitHub 和所有本机发布进程已经结束，并检查公开 `latest.json` 及目标版本 APK。只有确认没有活动发布者后，使用本项目 Supabase 控制台删除单个 `app-updates/android/publish.lock`，再重试。不要清空桶或手工删除当前清单指向的安装包。上传已成功但清单未提升时，保留原可用包；重试会验证新包。每次发布成功后由发布器按上述精确规则清理非当前包。同版本有冲突则分配更大的版本号。
 
 清单提升已成功但其公开验证暂时失败时，脚本返回失败，线上可能已是新版本。核查公开清单后原样重试；不要为了回退而覆写旧版本。修复应发布更大的 `versionCode`，保留原有签名。不要删除应用或清除数据来回退。
+
+## 仅保留最新安装包（2026-09-29）
+
+成功发布后的OTA存储区只保留最新的一个APK和最新清单。发布过程中会短暂同时存在旧包与新包，以保证新包可下载后才切换；发布失败不提前删旧包。清理失败会返回非零状态，但已提升的新版本保持可用；使用相同APK和相同说明重试即可继续清理，不改发布时间。
+
+旧版下载地址在清理后不再保证可用，已打开旧更新页的用户应再次点击“检查更新”获取最新版本；已经下载并完成校验的本机安装包不受云端清理影响。云端不再提供旧版回退，应以同签名更高versionCode发布修复。本机 `dist/` 历史交付与GitHub构建日志/临时CI产物不属于OTA存储区保留规则。
 
 ## 验收边界
 
 离线 Node 测试使用隔离 HTTP 响应，证明校验、顺序和失败处理，不能替代真实云上传。APK 元数据与签名校验不能替代手机安装验收。发布后分别记录公开下载哈希、实际清单、手机升级前后版本/签名，以及已有记录保留情况。未知来源权限和系统安装确认由用户在应用中明确操作。
 
-参考：[Supabase Storage API](https://supabase.com/docs/reference/self-hosting-storage/introduction)、[全局和桶级文件限制](https://supabase.com/docs/guides/storage/uploads/file-limits)、[公开桶与访问控制](https://supabase.com/docs/guides/storage/security/access-control)、[Android APK 签名验证](https://developer.android.com/tools/apksigner)。
+参考：[Storage删除对象](https://supabase.com/docs/guides/storage/management/delete-objects)、[Supabase Storage API](https://supabase.com/docs/reference/self-hosting-storage/introduction)、[全局和桶级文件限制](https://supabase.com/docs/guides/storage/uploads/file-limits)、[公开桶与访问控制](https://supabase.com/docs/guides/storage/security/access-control)、[Android APK 签名验证](https://developer.android.com/tools/apksigner)。

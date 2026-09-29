@@ -56,6 +56,21 @@ function storage({ latest, corrupt = false, locked = false, existingApk, redirec
       bucket = true;
       return new Response('{}');
     }
+    if (pathname === '/storage/v1/object/list/app-updates') {
+      const { prefix, limit, offset } = JSON.parse(options.body);
+      const names = new Map();
+      for (const key of objects.keys()) {
+        if (!key.startsWith(prefix + '/')) continue;
+        const rest = key.slice(prefix.length + 1);
+        const name = rest.split('/')[0];
+        names.set(name, { name, id: rest.includes('/') ? null : `id-${key}` });
+      }
+      return Response.json([...names.values()].sort((a, b) => a.name.localeCompare(b.name)).slice(offset, offset + limit));
+    }
+    if (pathname === '/storage/v1/object/app-updates' && method === 'DELETE') {
+      for (const key of JSON.parse(options.body).prefixes) objects.delete(key);
+      return Response.json([]);
+    }
     const isPublic = pathname.includes('/object/public/');
     const key = pathname.split('/app-updates/')[1];
     if (method === 'GET') {
@@ -165,4 +180,83 @@ test('malformed remote manifest and network errors remain bounded and redact ser
   await assert.rejects(run(fake));
   assert.equal(fake.objects.has('android/6/app.apk'), false);
   await assert.rejects(run(storage(), { fetchImpl: async () => { throw new Error('test-secret-never-log'); } }), error => !error.message.includes('test-secret-never-log'));
+});
+
+test('retains only the verified latest APK after public promotion without touching unrelated objects', async () => {
+  const fake = storage();
+  for (const key of ['android/4/app.apk', 'android/5/app.apk', 'android/8/app.apk', 'android/5/readme.json', 'android/other/app.apk', 'ios/app.apk']) fake.objects.set(key, apk);
+  await run(fake);
+  assert.deepEqual([...fake.objects.keys()].filter(k => /^android\/[1-9][0-9]*\/app\.apk$/.test(k)), ['android/6/app.apk']);
+  for (const key of ['android/5/readme.json', 'android/other/app.apk', 'ios/app.apk']) assert.ok(fake.objects.has(key));
+  const confirmation = fake.calls.findIndex(c => c.method === 'GET' && c.url === publicBase + 'android/latest.json');
+  const removal = fake.calls.findIndex(c => c.method === 'DELETE' && c.url.endsWith('/object/app-updates'));
+  assert.ok(confirmation >= 0 && removal > confirmation);
+});
+
+test('failed public verification never removes previous APKs', async () => {
+  for (const staleManifest of [false, true]) {
+    const fake = storage({ corrupt: !staleManifest });
+    fake.objects.set('android/5/app.apk', apk);
+    const fetchImpl = (url, options) => staleManifest && url === publicBase + 'android/latest.json'
+      ? Promise.resolve(Response.json({ ...manifest, notes: 'stale' })) : fake.fetchImpl(url, options);
+    await assert.rejects(run(fake, { fetchImpl }));
+    assert.ok(fake.objects.has('android/5/app.apk'));
+    assert.equal(fake.calls.some(c => c.method === 'DELETE' && c.url.endsWith('/object/app-updates')), false);
+  }
+});
+
+test('cleanup failure is reported after promotion and identical retry finishes cleanup', async () => {
+  const fake = storage();
+  fake.objects.set('android/5/app.apk', apk);
+  const fetchImpl = (url, options) => options.method === 'DELETE' && url.endsWith('/object/app-updates')
+    ? Promise.resolve(new Response('{}', { status: 503 })) : fake.fetchImpl(url, options);
+  await assert.rejects(run(fake, { fetchImpl }));
+  assert.deepEqual(JSON.parse(fake.objects.get('android/latest.json')), manifest);
+  assert.ok(fake.objects.has('android/6/app.apk'));
+  assert.ok(fake.objects.has('android/5/app.apk'));
+  assert.equal(fake.objects.has('android/publish.lock'), false);
+  await run(fake);
+  assert.equal(fake.objects.has('android/5/app.apk'), false);
+});
+
+test('enumerates all pages before deletion and keeps current APK across batches', async () => {
+  const fake = storage();
+  for (let version = 1; version <= 205; version++) fake.objects.set(`android/${version}/app.apk`, apk);
+  await run(fake);
+  assert.deepEqual([...fake.objects.keys()].filter(k => k.endsWith('/app.apk')), ['android/6/app.apk']);
+});
+
+test('malformed listing fails closed without deleting any APK', async () => {
+  for (const listing of [{}, [{ name: '../5', id: null }], [{ name: '5', id: null }, { name: '5', id: null }]]) {
+    const fake = storage();
+    fake.objects.set('android/5/app.apk', apk);
+    const fetchImpl = (url, options) => url.endsWith('/object/list/app-updates')
+      ? Promise.resolve(Response.json(listing)) : fake.fetchImpl(url, options);
+    await assert.rejects(run(fake, { fetchImpl }));
+    assert.ok(fake.objects.has('android/5/app.apk'));
+    assert.equal(fake.calls.some(c => c.method === 'DELETE' && c.url.endsWith('/object/app-updates')), false);
+  }
+});
+
+test('successful DELETE response cannot hide a retained obsolete APK', async () => {
+  const fake = storage();
+  fake.objects.set('android/5/app.apk', apk);
+  const fetchImpl = (url, options) => options.method === 'DELETE' && url.endsWith('/object/app-updates')
+    ? Promise.resolve(Response.json([])) : fake.fetchImpl(url, options);
+  await assert.rejects(run(fake, { fetchImpl }));
+  assert.ok(fake.objects.has('android/6/app.apk'));
+});
+test('changed authenticated latest during cleanup prevents deleting any package', async () => {
+  const fake = storage();
+  fake.objects.set('android/5/app.apk', apk);
+  let reads = 0;
+  const fetchImpl = (url, options) => {
+    if (url.endsWith('/object/app-updates/android/latest.json') && options.method === 'GET' && ++reads === 2) {
+      return Promise.resolve(Response.json({ ...manifest, notes: 'changed by another writer' }));
+    }
+    return fake.fetchImpl(url, options);
+  };
+  await assert.rejects(run(fake, { fetchImpl }));
+  assert.ok(fake.objects.has('android/5/app.apk'));
+  assert.equal(fake.calls.some(c => c.method === 'DELETE' && c.url.endsWith('/object/app-updates')), false);
 });
