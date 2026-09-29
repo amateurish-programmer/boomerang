@@ -24,8 +24,8 @@
 
 ## Task 2: 云端签名发布（controller）
 **Files:** docs/reports/UI-D4.md、docs/PROGRESS.md、本计划；dist/0.5.0本地交付及.tools证据不入Git。
-- [ ] 推送精确提交，CI通过后合并main；运行现有Signed candidate APK发布0.5.0，使用现有Secret，不输出密钥。
-- [ ] 下载公开清单/APK，核对版本、包名、原证书与SHA256，保存交付；发布器成功及独立存储只读列举分别记录latest-only。
+- [x] 推送精确提交，CI通过后合并main；运行现有Signed candidate APK发布0.5.0，使用现有Secret，不输出密钥。
+- [x] 下载公开清单/APK，核对版本、包名、原证书与SHA256，保存交付；发布器成功及独立存储只读列举分别记录latest-only。
 - [ ] 用户手机通过现有App检查、下载、安装；需要系统身份验证时请用户完成。
 - [ ] 核对手机versionCode8、首次安装时间不变、APK摘要，原记录原话/验证标准/备注/历史保留；目视首页/镖库/详情/个人/备份/OTA。
 - [ ] 报告源码、CI、云端、真机各层结果及未验收项，签名提交并自动推进不依赖百炼的收尾。
