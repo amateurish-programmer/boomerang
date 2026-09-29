@@ -1,0 +1,15 @@
+{
+  "packages": [
+    "android/7/app.apk"
+  ],
+  "publishedAt_unchanged": true,
+  "entries": [
+    "7",
+    "latest.json"
+  ],
+  "publish_lock_present": false,
+  "versionName": "0.4.2",
+  "sha256": "7ce6fc097459b0f5baddbabbbb23a6e9b33d9855a7211363ae06b28c5b5b8904",
+  "verified_at": "2026-09-29T08:47:21.4033214+08:00",
+  "versionCode": 7
+}
