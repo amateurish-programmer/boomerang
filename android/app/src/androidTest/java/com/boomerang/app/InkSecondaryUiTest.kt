@@ -6,6 +6,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.*
@@ -76,16 +77,23 @@ class InkSecondaryUiTest {
         var conflicts by mutableIntStateOf(0)
         var busy by mutableStateOf(false)
         compose.setContent { CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) {
-            BoomerangTheme { Surface(Modifier.height(360.dp)) { ImportPreviewDialog(5, conflicts,
+            BoomerangTheme { ImportPreviewDialog(5, conflicts,
                 List(5) { "合成记录 $it：这是一段用来检查长预览滚动的原话。" }, busy,
-                { calls += "skip" }, { calls += "replace" }, { calls += "cancel" }) } }
+                { calls += "skip" }, { calls += "replace" }, { calls += "cancel" },
+                modifier = Modifier.height(360.dp).testTag("bounded_import_dialog")) }
         } }
+        val actualHeight = compose.onNodeWithTag("bounded_import_dialog").fetchSemanticsNode().boundsInRoot.height
+        assertTrue(actualHeight <= 360 * compose.activity.resources.displayMetrics.density + 1)
+        compose.onNodeWithText("合成记录 4：这是一段用来检查长预览滚动的原话。").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("替换重复并导入").assertDoesNotExist()
-        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText("取消").performScrollTo().assertIsDisplayed().performClick()
         compose.runOnIdle { conflicts = 1 }
-        compose.onNodeWithText("跳过重复并导入").assertIsDisplayed().performClick()
-        compose.onNodeWithText("替换重复并导入").assertIsDisplayed().performClick()
+        compose.onNodeWithText("跳过重复并导入").performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithText("替换重复并导入").performScrollTo().assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals(listOf("cancel", "skip", "replace"), calls) }
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val evidence = File(instrumentation.targetContext.getExternalFilesDir(null), "acceptance/ink-secondary").apply { mkdirs() }
+        assertTrue(UiDevice.getInstance(instrumentation).takeScreenshot(File(evidence, "import-preview-large-text-short-synthetic.png")))
         compose.runOnIdle { busy = true }
         compose.onNodeWithText("取消").assertIsNotEnabled()
         compose.onNodeWithText("跳过重复并导入").assertIsNotEnabled()

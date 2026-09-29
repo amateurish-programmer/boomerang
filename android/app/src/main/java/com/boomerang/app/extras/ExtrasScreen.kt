@@ -14,6 +14,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.boomerang.app.ui.InkPageTitle
@@ -89,18 +90,16 @@ fun ExtrasScreen(ownerNamespace: String, onOpenRecord: (String) -> Unit, modifie
 
 @Composable
 fun ImportPreviewDialog(recordCount: Int, conflicts: Int, excerpts: List<String>, busy: Boolean,
-    onSkip: () -> Unit, onReplace: () -> Unit, onCancel: () -> Unit) {
+    onSkip: () -> Unit, onReplace: () -> Unit, onCancel: () -> Unit, modifier: Modifier = Modifier) {
     Dialog(onDismissRequest = { if (!busy) onCancel() }) {
-        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Surface(modifier = modifier.fillMaxWidth().testTag("import_preview_dialog"),
+            shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("确认导入预览", style = MaterialTheme.typography.titleLarge)
-                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("已校验 $recordCount 条记录，其中 $conflicts 条 UUID 已存在。替换会保留原历史，并追加导入版本。")
-                    Text("删除标记将被保留。账号内导入的记录随后参与云同步；不会迁入其他账号。")
-                    Text("文件中的确认结果仅作为未核验历史存档，导入后的当前记录为未确认。超过 10 个云端来源的记录请通过云同步恢复。")
-                    excerpts.forEach { Text(it) }
-                }
+                Text("已校验 $recordCount 条记录，其中 $conflicts 条 UUID 已存在。替换会保留原历史，并追加导入版本。")
+                Text("删除标记将被保留。账号内导入的记录随后参与云同步；不会迁入其他账号。")
+                Text("文件中的确认结果仅作为未核验历史存档，导入后的当前记录为未确认。超过 10 个云端来源的记录请通过云同步恢复。")
+                excerpts.forEach { Text(it) }
                 ImportPreviewActions(conflicts, busy, onSkip, onReplace, onCancel)
             }
         }
