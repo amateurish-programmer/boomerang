@@ -96,30 +96,36 @@ fun LibraryScreen(state: LibraryState, visible: List<RecordEntity>, query: Strin
     var filters by rememberSaveable { mutableStateOf(false) }
     var draftType by rememberSaveable { mutableStateOf(type) }
     var draftResult by rememberSaveable { mutableStateOf(result) }
-    Column(modifier.fillMaxSize().padding(horizontal = 24.dp)) {
-        Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("你的镖库", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-            TextButton(onClick = onCreate, modifier = Modifier.heightIn(min = 48.dp).testTag("create_record")) { Text("新建记录") }
+    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp)) {
+        item(key = "library_heading") {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("你的镖库", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                TextButton(onClick = onCreate, modifier = Modifier.heightIn(min = 48.dp).testTag("create_record")) { Text("新建记录") }
+            }
+            Text("原话有迹，往事可循。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(16.dp))
         }
-        Text("原话有迹，往事可循。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(16.dp))
-        OutlinedTextField(query, onQuery, label = { Text("搜索原话、人物、主题或备注") }, modifier = Modifier.fillMaxWidth().testTag("search"), singleLine = true)
-        FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { draftType = type; draftResult = result; filters = true }, modifier = Modifier.heightIn(min = 48.dp).testTag("open_filters")) {
-                Text("${recordTypes[type] ?: "全部类型"} · ${resultStatuses[result] ?: if (result == "UNCONFIRMED") "未确认" else "全部结果"}")
-            }
-            Choice("排序", sort, mapOf("due" to "截止日期优先", "updated" to "最近修改优先"), onChange = onSort)
+        item(key = "library_search") {
+            OutlinedTextField(query, onQuery, label = { Text("搜索原话、人物、主题或备注") }, modifier = Modifier.fillMaxWidth().testTag("search"), singleLine = true)
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 24.dp)) {
-            item {
-                Text("共 ${visible.size} 条记录", Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                LoadingOrError(state, onRetry)
+        item(key = "library_filters") {
+            FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { draftType = type; draftResult = result; filters = true }, modifier = Modifier.heightIn(min = 48.dp).testTag("open_filters")) {
+                    Text("${recordTypes[type] ?: "全部类型"} · ${resultStatuses[result] ?: if (result == "UNCONFIRMED") "未确认" else "全部结果"}")
+                }
+                Choice("排序", sort, mapOf("due" to "截止日期优先", "updated" to "最近修改优先"), onChange = onSort)
             }
-            if (!state.loading && state.error == null) {
-                if (visible.isEmpty()) item { Text(if (state.records.isEmpty()) "这里还没有记录" else "没有符合条件的记录", Modifier.padding(vertical = 24.dp), style = MaterialTheme.typography.titleMedium) }
-                items(visible, key = { it.id }) { RecordRow(it, countdown(it), onOpen) }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+        item(key = "library_status") {
+            Text("共 ${visible.size} 条记录", Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LoadingOrError(state, onRetry)
+        }
+        if (!state.loading && state.error == null) {
+            if (visible.isEmpty()) item(key = "library_empty") {
+                Text(if (state.records.isEmpty()) "这里还没有记录" else "没有符合条件的记录", Modifier.padding(vertical = 24.dp), style = MaterialTheme.typography.titleMedium)
             }
+            items(visible, key = { it.id }) { RecordRow(it, countdown(it), onOpen) }
         }
     }
     if (filters) ModalBottomSheet(onDismissRequest = { filters = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),

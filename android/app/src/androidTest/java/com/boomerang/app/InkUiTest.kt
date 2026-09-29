@@ -6,6 +6,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
@@ -93,6 +98,33 @@ class InkUiTest {
         compose.onNodeWithTag("save_record").assertIsNotEnabled()
     }
 
+    @Test fun largeTextShortLibraryCanReachRecordAndReturnToSearch() {
+        var opened = ""
+        var query by mutableStateOf("")
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) {
+                BoomerangTheme(false) {
+                    Box(Modifier.fillMaxSize()) {
+                        LibraryScreen(LibraryState(false, listOf(record)), listOf(record), query, "", "", "due",
+                            { query = it }, {}, {}, {}, { "明天到期" }, {}, { opened = it }, {},
+                            Modifier.fillMaxWidth().height(360.dp))
+                    }
+                }
+            }
+        }
+        val list = compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.ScrollToIndex))
+        list.performScrollToNode(hasText(record.content.originalText))
+        compose.onNodeWithText(record.content.originalText).assertIsDisplayed().performClick()
+        compose.runOnIdle { assertEquals("ink-fixture", opened) }
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val evidence = File(instrumentation.targetContext.getExternalFilesDir(null), "acceptance/ink-ui").apply { mkdirs() }
+        org.junit.Assert.assertTrue(UiDevice.getInstance(instrumentation)
+            .takeScreenshot(File(evidence, "library-large-text-short-window.png")))
+        list.performScrollToNode(hasTestTag("search"))
+        compose.onNodeWithTag("search").performScrollTo().assertIsDisplayed().performTextInput("林川")
+        compose.runOnIdle { assertEquals("林川", query) }
+    }
+
     @Test fun syntheticScreenshotsLightDarkAndLargeText() {
         var page by mutableStateOf("home")
         var dark by mutableStateOf(false)
@@ -122,7 +154,23 @@ class InkUiTest {
         compose.runOnIdle { page = "library" }; capture("library-light")
         compose.runOnIdle { page = "detail" }; capture("detail-light")
         compose.runOnIdle { dark = true }; capture("detail-dark")
+        compose.runOnIdle { dark = false; fontScale = 2f; page = "library" }
+        compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.ScrollToIndex))
+            .performScrollToNode(hasText(record.content.originalText))
+        compose.onNodeWithText(record.content.originalText).assertIsDisplayed()
+        capture("library-large-text")
+        compose.runOnIdle { page = "detail" }
+        compose.onNodeWithTag("detail_tab_sources").performScrollTo().performClick()
+        compose.onNodeWithText("尚未添加来源").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("edit_record").assertIsDisplayed()
+        capture("detail-large-text")
         compose.runOnIdle { dark = false; fontScale = 2f; page = "editor" }
+        compose.onNodeWithTag("verificationCriteria").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("save_record").assertIsDisplayed()
+        compose.onNodeWithTag("back").assertIsDisplayed()
+        capture("editor-large-text-bottom")
+        compose.onNodeWithTag("subject").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("quote_input").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("save_record").assertIsDisplayed()
         compose.onNodeWithTag("back").assertIsDisplayed()
         capture("editor-large-text")
