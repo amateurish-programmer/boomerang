@@ -16,6 +16,7 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.platform.app.InstrumentationRegistry
 import android.os.SystemClock
+import android.graphics.Rect
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNotNull
 import org.junit.Rule
@@ -41,6 +42,53 @@ class ShellNavigationTest {
         val evidence = java.io.File(instrumentation.targetContext.getExternalFilesDir(null), "acceptance/ink-ui").apply { mkdirs() }
         org.junit.Assert.assertTrue(androidx.test.uiautomator.UiDevice.getInstance(instrumentation)
             .takeScreenshot(java.io.File(evidence, "$name.png")))
+    }
+
+    /** Best-effort evidence for legacy device failures; never replaces the test assertion. */
+    private fun captureProbe(name: String) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = UiDevice.getInstance(instrumentation)
+        val evidence = java.io.File(instrumentation.targetContext.getExternalFilesDir(null), "acceptance/ink-ui")
+        val metrics = StringBuilder()
+        fun record(label: String, block: () -> Any?) {
+            metrics.append(label).append("=")
+                .append(runCatching(block).fold({ it.toString() }, { "error: $it" }))
+                .append('\n')
+        }
+
+        record("screenshot") { captureScreenshot(name); "$name.png" }
+        record("hierarchy") { device.dumpWindowHierarchy(java.io.File(evidence, "$name.xml")); "$name.xml" }
+        record("display") { "${device.displayWidth}x${device.displayHeight}" }
+        record("window") {
+            var value = "unavailable"
+            compose.runOnUiThread {
+                val decor = compose.activity.window.decorView
+                val location = IntArray(2)
+                decor.getLocationOnScreen(location)
+                val visible = Rect()
+                decor.getWindowVisibleDisplayFrame(visible)
+                val insets = ViewCompat.getRootWindowInsets(decor)
+                val types = listOf(
+                    "status" to WindowInsetsCompat.Type.statusBars(),
+                    "navigation" to WindowInsetsCompat.Type.navigationBars(),
+                    "ime" to WindowInsetsCompat.Type.ime()
+                )
+                value = "decorLocation=${location.contentToString()} decorSize=${decor.width}x${decor.height} " +
+                    "visibleFrame=$visible " + types.joinToString(" ") { (label, type) ->
+                        "$label=${insets?.getInsets(type)} visible=${insets?.isVisible(type)}"
+                    }
+            }
+            value
+        }
+        listOf("back", "save_record", "quote_input").forEach { tag ->
+            record("compose.$tag.boundsInRoot") {
+                compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+            }
+        }
+        listOf("返回", "保存记录", "年底读完十二本书").forEach { label ->
+            record("uiautomator.$label.visibleBounds") { device.findObject(By.text(label))?.visibleBounds }
+        }
+        runCatching { evidence.mkdirs(); java.io.File(evidence, "$name.txt").writeText(metrics.toString()) }
     }
 
     /** Wait for the real IME and a stable inset, not merely Compose's idle clock. */
@@ -117,6 +165,7 @@ class ShellNavigationTest {
         compose.onNodeWithTag("create_record").performClick()
         compose.onNodeWithTag("quote_input").performTextInput("年底读完十二本书")
         compose.activityRule.scenario.recreate()
+        captureProbe("probe-draft-recreated")
         compose.onNodeWithText("年底读完十二本书").assertIsDisplayed()
         compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         compose.onNodeWithText("你的镖库").assertIsDisplayed()
@@ -138,6 +187,7 @@ class ShellNavigationTest {
         waitForIme(true)
         compose.onNodeWithTag("back").assertIsDisplayed()
         compose.onNodeWithTag("save_record").assertIsDisplayed()
+        captureProbe("probe-editor-keyboard")
         assertEditorActionsInsideVisibleWindow()
         captureScreenshot("shell-editor-keyboard")
         compose.onNodeWithTag("save_record").assertIsDisplayed().performClick()
