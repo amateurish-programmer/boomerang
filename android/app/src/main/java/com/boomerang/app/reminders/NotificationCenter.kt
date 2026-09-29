@@ -10,12 +10,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.boomerang.app.ui.InkSectionTitle
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -70,16 +72,16 @@ fun NotificationCenter(ownerNamespace: String, onOpenRecord: (String) -> Unit, m
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     LaunchedEffect(ownerNamespace) { model.selectOwner(ownerNamespace) }
-    Column(modifier.fillMaxWidth()) {
-        Text("通知中心", style = MaterialTheme.typography.titleLarge)
+    Column(modifier.fillMaxWidth(), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+        InkSectionTitle("通知中心")
         Text("后台提醒可能延迟，打开应用会补查。这里保留最近 200 条本机提醒。")
         if (!allowed) {
             Text("系统通知未开启，提醒仍会保存在这里。")
-            if (Build.VERSION.SDK_INT >= 33) TextButton(onClick = { permission.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text("开启系统通知") }
+            if (Build.VERSION.SDK_INT >= 33) TextButton(onClick = { permission.launch(Manifest.permission.POST_NOTIFICATIONS) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("开启系统通知") }
             TextButton(onClick = {
                 context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                     .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
-            }) { Text("通知设置") }
+            }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("通知设置") }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         val visible = items.filter { it.owner == ownerNamespace }
@@ -88,6 +90,7 @@ fun NotificationCenter(ownerNamespace: String, onOpenRecord: (String) -> Unit, m
             TextButton(onClick = { onOpenRecord(item.recordId) }, modifier = Modifier.fillMaxWidth()) {
                 Column { Text(item.title); Text(item.message); Text("${item.createdAt.take(10)} · 记录版本 ${item.revision}", style = MaterialTheme.typography.bodySmall) }
             }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }

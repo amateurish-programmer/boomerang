@@ -21,14 +21,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.boomerang.app.domain.*
 import java.time.LocalDate
 import java.time.ZoneId
+import com.boomerang.app.ui.InkPageTitle
+import com.boomerang.app.ui.InkSectionTitle
+import com.boomerang.app.ui.InkPrimaryAction
 
 /** Host must key this composition by its account namespace, including anonymous. */
 @Composable
 fun AssistantScreen(ownerNamespace: String, onDraft: (RecordContent)->Unit, onRecord: (String)->Unit, modifier: Modifier = Modifier) {
     val app=LocalContext.current.applicationContext as Application
     if(ownerNamespace=="local") {
-        Column(modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-            Text("AI 助手",style=MaterialTheme.typography.headlineMedium)
+        Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+            InkPageTitle("AI 助手", "先登录，再使用云端辅助功能")
             Text("请先在「我的」登录，才能使用 AI 助手。")
             Text("AI 内容需要你核对。没有配置服务时仍可手动记录。")
         }
@@ -46,12 +49,10 @@ fun AssistantScreen(ownerNamespace: String, onDraft: (RecordContent)->Unit, onRe
     var text by rememberSaveable(section) { mutableStateOf("") }
     var date by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     var zone by rememberSaveable { mutableStateOf(ZoneId.systemDefault().id) }
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        Text("AI 助手",style=MaterialTheme.typography.headlineMedium)
+    Column(modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+        InkPageTitle("AI 助手", "从原话到确认，每一步由你把关")
         Text("原话、来源、AI 建议与你的确认分开保存。AI 不会替你作最终判断。")
-        Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-            listOf("录入","对话","调查","复核").forEach { item -> FilterChip(selected=section==item,onClick={ section=item },label={ Text(item) },enabled=!state.busy) }
-        }
+        AssistantModeNavigation(section, state.busy) { section = it }
         if(state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         state.message?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.testTag("assistant_message")) }
         if(section in listOf("录入","调查","对话")) {
@@ -63,30 +64,30 @@ fun AssistantScreen(ownerNamespace: String, onDraft: (RecordContent)->Unit, onRe
         }
         when(section) {
             "录入" -> {
-                Button(onClick={ model.analyze(text,date,zone) },enabled=!state.busy && text.isNotBlank(),modifier=Modifier.testTag("assistant_analyze")) { Text("整理为待确认草稿") }
+                InkPrimaryAction("整理为待确认草稿", Modifier.testTag("assistant_analyze"), enabled = !state.busy && text.isNotBlank()) { model.analyze(text,date,zone) }
                 state.draft?.let { draft ->
-                    HorizontalDivider(); Text("待确认草稿 · 尚未保存",style=MaterialTheme.typography.titleMedium)
+                    InkSectionTitle("待确认草稿 · 尚未保存")
                     DraftPreview(draft.content)
                     draft.questions.forEach { Text("待澄清：$it") }
-                    Button(onClick={ model.dismissDraft(); onDraft(draft.content.copy(lifecycle="ACTIVE")) },enabled=!state.busy) { Text("核对并编辑") }
+                    InkPrimaryAction("核对并编辑", enabled = !state.busy) { model.dismissDraft(); onDraft(draft.content.copy(lifecycle="ACTIVE")) }
                     TextButton(onClick=model::dismissDraft) { Text("取消草稿") }
                     Text("下一页可修改全部字段，只有点击保存才写入镖库。")
                 }
             }
             "对话" -> {
-                Button(onClick={ model.chat(text) },enabled=!state.busy && text.isNotBlank()) { Text("发送") }
+                InkPrimaryAction("发送", enabled = !state.busy && text.isNotBlank()) { model.chat(text) }
                 TextButton(onClick=model::newConversation,enabled=!state.busy) { Text("新对话") }
                 state.messages.forEach { Text((if(it.role=="user") "我：" else "AI：")+it.text) }
                 HorizontalDivider(); Text("最近对话（最多 20 条）")
                 state.conversations.forEach { c -> TextButton(onClick={ model.conversation(c.id) },enabled=!state.busy) { Text(c.title.ifBlank { "未命名对话" }) } }
                 Text("对话只保存为聊天记录，不会自动写入镖库。")
-                HorizontalDivider(); Text("我的 AI 周报",style=MaterialTheme.typography.titleMedium)
+                InkSectionTitle("我的 AI 周报")
                 Text("按当前时区周一至周日，汇总本人本周新增的最近 10 条云端记录；原话最多取前 200 字。先同步再生成。仅供本人查看，不自动发布。")
-                Button(onClick=model::weekly,enabled=!state.busy) { Text("生成本周摘要") }
+                InkPrimaryAction("生成本周摘要", enabled = !state.busy, onClick = model::weekly)
                 state.weeklySummary?.let { Text("AI 摘要（请核对引用）\n$it") }
             }
             "调查" -> {
-                Button(onClick={ model.research(text,date,zone) },enabled=!state.busy && text.isNotBlank()) { Text("开始调查") }
+                InkPrimaryAction("开始调查", enabled = !state.busy && text.isNotBlank()) { model.research(text,date,zone) }
                 TextButton(onClick=model::refresh,enabled=!state.busy) { Text("刷新最近任务") }
                 Text("离开或重启后可在这里继续查看最近 20 个任务。")
                 state.jobs.forEach { job ->
@@ -94,7 +95,7 @@ fun AssistantScreen(ownerNamespace: String, onDraft: (RecordContent)->Unit, onRe
                     TextButton(onClick={ model.candidates(job.id) },enabled=!state.busy) { Text(jobStatus(job.status)+" · 查看候选") }
                 }
                 state.candidates.forEach { candidate ->
-                    HorizontalDivider(); Text("调查候选 · AI 建议",style=MaterialTheme.typography.titleMedium)
+                    InkSectionTitle("调查候选 · AI 建议")
                     DraftPreview(candidate.content)
                     candidate.sources.forEach { SourceView(it) }
                     Text("请核对原话、日期与来源。来源数量不代表独立证据数量。")
@@ -116,7 +117,7 @@ fun AssistantScreen(ownerNamespace: String, onDraft: (RecordContent)->Unit, onRe
                 state.records.forEach { record -> TextButton(onClick={ model.selectRecord(record) },enabled=!state.busy) { Text(record.text) } }
                 state.selectedRecord?.let { record ->
                     HorizontalDivider(); Text("已选择：${record.text}")
-                    Button(onClick={ model.verify(record) },enabled=!state.busy) { Text("请求证据复核") }
+                    InkPrimaryAction("请求证据复核", enabled = !state.busy) { model.verify(record) }
                     if(state.checks.isEmpty()) Text("尚无复核报告。任务完成后重新选择此记录。")
                     state.checks.forEach { check ->
                         Text("AI 建议：${resultStatuses[check.suggestion]}"+(if(check.revision!=record.revision) "（旧版本，不能确认）" else ""))
@@ -138,12 +139,22 @@ fun AssistantScreen(ownerNamespace: String, onDraft: (RecordContent)->Unit, onRe
                             Row { RadioButton(selected=choice==value,onClick={ choice=value },enabled=!state.busy); Text(label,modifier=Modifier.padding(top=12.dp)) }
                         }
                         OutlinedTextField(reason,{ if(it.length<=4000) reason=it },label={ Text("确认理由") },enabled=!state.busy,modifier=Modifier.fillMaxWidth())
-                        Button(onClick={ model.confirm(check,choice,reason) },enabled=!state.busy && choice.isNotBlank() && reason.isNotBlank() && check.revision==state.selectedRecord?.revision) { Text("确认我的判断") }
+                        InkPrimaryAction("确认我的判断", enabled = !state.busy && choice.isNotBlank() && reason.isNotBlank() && check.revision==state.selectedRecord?.revision) { model.confirm(check,choice,reason) }
                     }
                 }
             }
         }
         if(state.jobs.isEmpty() && section=="调查") Text("暂无云端调查任务。服务未配置时不会生成示例候选。")
+    }
+}
+
+@Composable
+fun AssistantModeNavigation(selected: String, busy: Boolean, onSelect: (String) -> Unit) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf("录入", "对话", "调查", "复核").forEach { item ->
+            FilterChip(selected = selected == item, onClick = { onSelect(item) }, enabled = !busy,
+                label = { Text(item) }, modifier = Modifier.heightIn(min = 48.dp).testTag("assistant_mode_$item"))
+        }
     }
 }
 
@@ -172,7 +183,7 @@ fun AssistantScreen(ownerNamespace: String, onDraft: (RecordContent)->Unit, onRe
     }
     val errors=RecordRules.validate(review)
     errors.values.distinct().forEach { Text(it,color=MaterialTheme.colorScheme.error) }
-    Button(onClick={ onAccept(review) },enabled=!busy && errors.isEmpty()) { Text("确认收录核对后的候选") }
+    InkPrimaryAction("确认收录核对后的候选", enabled = !busy && errors.isEmpty()) { onAccept(review) }
 }
 
 private fun jobStatus(status: String)=when(status) { "QUEUED"->"排队中"; "RUNNING"->"调查中"; "SUCCEEDED"->"已完成"; else->"未完成，可稍后重新发起" }

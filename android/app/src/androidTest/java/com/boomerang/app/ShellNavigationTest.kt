@@ -176,30 +176,30 @@ class ShellNavigationTest {
 
     @Test fun profileProvidesExplicitLoginAndImportBoundary() {
         compose.onNodeWithTag("nav_PROFILE").performClick()
-        compose.onNodeWithTag("account_email").assertIsDisplayed()
-        compose.onNodeWithTag("account_password").assertIsDisplayed()
+        compose.onNodeWithTag("account_email").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("account_password").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("account_login").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun updatesAreReachableWithoutLoginAndSurviveRecreation() {
         compose.onNodeWithTag("nav_PROFILE").performClick()
-        compose.onNodeWithTag("open_updates").performClick()
+        compose.onNodeWithTag("open_updates").performScrollTo().performClick()
         compose.onNodeWithText("版本与更新").assertIsDisplayed()
         compose.onNodeWithTag("update_check").assertIsDisplayed()
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("版本与更新").assertIsDisplayed()
         compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
-        compose.onNodeWithTag("open_updates").assertIsDisplayed()
+        compose.onNodeWithTag("open_updates").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun localReviewAndBackupEntryReturnsToProfile() {
         compose.onNodeWithTag("nav_PROFILE").performClick()
-        compose.onNodeWithText("回顾、分享与备份").performClick()
+        compose.onNodeWithText("回顾、分享与备份").performScrollTo().performClick()
         compose.onNodeWithText("回顾与备份").assertIsDisplayed()
         compose.onNodeWithText("年度报告").assertIsDisplayed()
         compose.onNodeWithText("导入预览").performScrollTo().assertIsDisplayed()
         compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
-        compose.onNodeWithTag("account_email").assertIsDisplayed()
+        compose.onNodeWithTag("account_email").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun editorDraftSurvivesBackAndRecreation() {
@@ -244,6 +244,44 @@ class ShellNavigationTest {
             compose.onNodeWithTag("nav_HOME").performClick()
             compose.onNodeWithText("回旋镖").assertIsDisplayed()
             captureScreenshot("dark-shell-home")
+        } finally {
+            if (changed) {
+                val result = device.executeShellCommand("cmd uimode night $originalMode").trim()
+                assertTrue("Could not restore system night mode: $result", result == "Night mode: $originalMode")
+                if (originalMode != "auto") waitForNightAppearance(originalMode == "yes")
+            }
+        }
+    }
+
+    @Test fun realSecondaryPagesLightAndSystemDarkScreenshots() {
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        val initial = device.executeShellCommand("cmd uimode night").trim()
+        val originalMode = Regex("^Night mode: (yes|no|auto)$").matchEntire(initial)?.groupValues?.get(1)
+            ?: error("Cannot safely restore unsupported system night mode: $initial")
+        var changed = false
+        try {
+            for (dark in listOf(false, true)) {
+                val target = if (dark) "yes" else "no"
+                if (originalMode != target) changed = true
+                val result = device.executeShellCommand("cmd uimode night $target").trim()
+                assertTrue("Could not set system night mode: $result", result == "Night mode: $target")
+                waitForNightAppearance(dark)
+                val label = if (dark) "dark" else "light"
+                compose.onNodeWithTag("nav_PROFILE").performClick()
+                compose.onNodeWithText("我的空间").assertIsDisplayed()
+                captureScreenshot("secondary-real-profile-$label")
+                compose.onNodeWithTag("open_updates").performScrollTo().performClick()
+                compose.onNodeWithText("版本与更新").assertIsDisplayed()
+                captureScreenshot("secondary-real-updates-$label")
+                compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+                compose.onNodeWithText("回顾、分享与备份").performScrollTo().performClick()
+                compose.onNodeWithText("回顾与备份").assertIsDisplayed()
+                captureScreenshot("secondary-real-extras-$label")
+                compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+                compose.onNodeWithTag("nav_AI").performClick()
+                compose.onNodeWithText("AI 助手").assertIsDisplayed()
+                captureScreenshot("secondary-real-ai-signed-out-$label")
+            }
         } finally {
             if (changed) {
                 val result = device.executeShellCommand("cmd uimode night $originalMode").trim()

@@ -77,10 +77,7 @@ fun BoomerangApp(model: ShellViewModel = viewModel()) {
         val modifier = Modifier.padding(padding).consumeWindowInsets(padding)
         when (screen) {
             "updates" -> UpdateScreen(model::back, modifier)
-            "extras" -> Column(modifier.fillMaxSize()) {
-                TextButton(onClick = model::back) { Text("返回") }
-                key(owner) { ExtrasScreen(owner, model::openDetail, Modifier.weight(1f)) }
-            }
+            "extras" -> key(owner) { ExtrasScreen(owner, model::openDetail, modifier, onBack = model::back) }
             "editor" -> RecordEditor(editor, errors, busy, message, model::updateContent, model::updateSources, model::save, model::back, modifier)
             "detail" -> RecordDetailScreen(detail, detail?.record?.let(model::countdown).orEmpty(), model.history(detail), busy, message, model::editCurrent, model::deleteCurrent, model::back, modifier, model::lockCurrent)
             else -> when (Destination.valueOf(selected)) {
@@ -88,11 +85,10 @@ fun BoomerangApp(model: ShellViewModel = viewModel()) {
                 Destination.LIBRARY -> LibraryScreen(library, model.filtered(library.records, query, type, result, sort), query, type, result, sort,
                     model::setQuery, model::setType, model::setResult, model::setSort, model::countdown, model::openEditor, model::openDetail, model::retry, modifier)
                 Destination.AI -> key(owner) { AssistantScreen(owner, model::openAiDraft, model::syncAndOpenDetail, modifier = modifier) }
-                Destination.PROFILE -> Column(modifier.fillMaxSize()) {
-                    TextButton(onClick = model::openUpdates, modifier = Modifier.testTag("open_updates")) { Text("版本与更新") }
-                    TextButton(onClick = model::openExtras, enabled = account.ready && !busy) { Text("回顾、分享与备份") }
+                Destination.PROFILE -> {
                     AccountScreen(account, owner, busy, model::signIn, model::signUp, model::signOut, model::sync,
-                        model::previewAnonymous, model::importAnonymous, model::resolveConflict, model::openDetail, Modifier.weight(1f))
+                        model::previewAnonymous, model::importAnonymous, model::resolveConflict, model::openDetail,
+                        modifier = modifier, onUpdates = model::openUpdates, onExtras = model::openExtras)
                 }
             }
         }

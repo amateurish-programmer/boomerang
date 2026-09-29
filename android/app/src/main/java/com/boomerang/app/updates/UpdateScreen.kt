@@ -28,6 +28,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.util.Locale
+import com.boomerang.app.ui.InkPageTitle
+import com.boomerang.app.ui.InkSectionTitle
+import com.boomerang.app.ui.InkPrimaryAction
+import com.boomerang.app.ui.InkSecondaryAction
 
 @Composable
 fun UpdateScreen(onBack: () -> Unit, modifier: Modifier = Modifier, model: UpdateViewModel = viewModel()) {
@@ -45,34 +49,40 @@ fun UpdateScreen(onBack: () -> Unit, modifier: Modifier = Modifier, model: Updat
             try { system.launch(intent) } catch (_: Exception) { model.systemActionFailed() }
         }
     }
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        TextButton(onClick = onBack) { Text("返回") }
-        Text("版本与更新", style = MaterialTheme.typography.headlineMedium)
+    UpdateContent(state, onBack, model::check, model::download, model::cancelDownload,
+        model::openPermissionSettings, model::install, modifier)
+}
+
+@Composable
+fun UpdateContent(state: UpdateUiState, onBack: () -> Unit, onCheck: () -> Unit, onDownload: () -> Unit,
+    onCancel: () -> Unit, onPermission: () -> Unit, onInstall: () -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("返回") }
+        InkPageTitle("版本与更新", "安装包将经完整性与签名校验")
         Text("当前版本：${state.currentVersion}", modifier = Modifier.testTag("update_current_version"))
-        Button(onClick = model::check, enabled = !state.busy, modifier = Modifier.testTag("update_check")) { Text("检查更新") }
+        if (state.stage == UpdateStage.IDLE) InkPrimaryAction("检查更新", Modifier.testTag("update_check"), !state.busy, onCheck)
+        else InkSecondaryAction("检查更新", Modifier.testTag("update_check"), !state.busy, onCheck)
         state.message?.let { Text(it, modifier = Modifier.testTag("update_message")) }
         if (state.busy && state.stage != UpdateStage.DOWNLOADING) LinearProgressIndicator(Modifier.fillMaxWidth())
         state.manifest?.let { manifest ->
-            Text("版本 ${manifest.versionName}", style = MaterialTheme.typography.titleLarge)
+            InkSectionTitle("发现版本 ${manifest.versionName}", "更新说明")
             Text("安装包 ${String.format(Locale.ROOT, "%.1f", manifest.sizeBytes / 1048576.0)} MB")
             Text(manifest.notes)
             when (state.stage) {
-                UpdateStage.AVAILABLE, UpdateStage.RETRY -> Button(onClick = model::download, enabled = !state.busy,
-                    modifier = Modifier.testTag("update_download")) { Text(if (state.stage == UpdateStage.RETRY) "重新下载" else "下载更新") }
+                UpdateStage.AVAILABLE, UpdateStage.RETRY -> InkPrimaryAction(if (state.stage == UpdateStage.RETRY) "重新下载" else "下载更新",
+                    Modifier.testTag("update_download"), !state.busy, onDownload)
                 UpdateStage.DOWNLOADING -> {
                     val fraction = (state.downloaded.toFloat() / manifest.sizeBytes).coerceIn(0f, 1f)
                     LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
                     Text("已下载 ${(fraction * 100).toInt()}%")
-                    OutlinedButton(onClick = model::cancelDownload, modifier = Modifier.testTag("update_cancel")) { Text("取消下载") }
+                    InkSecondaryAction("取消下载", modifier = Modifier.testTag("update_cancel"), onClick = onCancel)
                 }
                 UpdateStage.READY -> {
                     if (!state.canInstall) {
                         Text("安装更新需要允许回旋镖安装应用。设置完成后，请返回并点击安装。")
-                        OutlinedButton(onClick = model::openPermissionSettings, enabled = !state.busy,
-                            modifier = Modifier.testTag("update_permission")) { Text("允许安装应用") }
+                        InkSecondaryAction("允许安装应用", Modifier.testTag("update_permission"), !state.busy, onPermission)
                     }
-                    Button(onClick = model::install, enabled = !state.busy && state.canInstall,
-                        modifier = Modifier.testTag("update_install")) { Text("安装更新") }
+                    InkPrimaryAction("安装更新", Modifier.testTag("update_install"), !state.busy && state.canInstall, onInstall)
                 }
                 UpdateStage.IDLE -> Unit
             }
