@@ -14,6 +14,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
 import androidx.test.platform.app.InstrumentationRegistry
 import android.os.SystemClock
 import android.graphics.Rect
@@ -125,6 +126,34 @@ class ShellNavigationTest {
         compose.waitForIdle()
     }
 
+    /** Wait for both window geometry and editor semantics to stop moving after recreation. */
+    private fun waitForStableEditorLayout() {
+        var previous: String? = null
+        var stableSince = SystemClock.elapsedRealtime()
+        compose.waitUntil(10_000) {
+            var window: String? = null
+            compose.runOnUiThread {
+                val decor = compose.activity.window.decorView
+                val visible = Rect()
+                decor.getWindowVisibleDisplayFrame(visible)
+                val insets = ViewCompat.getRootWindowInsets(decor)
+                if (decor.width > 0 && decor.height > 0 && insets != null) {
+                    val ime = WindowInsetsCompat.Type.ime()
+                    window = "${decor.width}x${decor.height}/$visible/" +
+                        "${insets.isVisible(ime)}/${insets.getInsets(ime).bottom}"
+                }
+            }
+            val quote = runCatching { compose.onNodeWithTag("quote_input").fetchSemanticsNode().boundsInRoot }.getOrNull()
+            val save = runCatching { compose.onNodeWithTag("save_record").fetchSemanticsNode().boundsInRoot }.getOrNull()
+            val snapshot = if (window != null && quote != null && save != null) "$window/$quote/$save" else null
+            val now = SystemClock.elapsedRealtime()
+            if (snapshot == null || snapshot != previous) stableSince = now
+            previous = snapshot
+            snapshot != null && now - stableSince >= 500
+        }
+        compose.waitForIdle()
+    }
+
     private fun assertEditorActionsInsideVisibleWindow() {
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         var statusBottom = 0
@@ -136,7 +165,7 @@ class ShellNavigationTest {
             keyboardTop = device.displayHeight - insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
         }
         listOf("返回", "新建记录", "保存记录").forEach { text ->
-            val node = device.findObject(By.text(text))
+            val node = device.wait(Until.findObject(By.text(text)), 5_000)
             assertNotNull("$text must remain on screen with the keyboard open", node)
             val bounds = requireNotNull(node).visibleBounds
             assertTrue("$text has visible screen bounds: $bounds", bounds.width() > 0 && bounds.height() > 0)
@@ -178,11 +207,15 @@ class ShellNavigationTest {
         compose.onNodeWithTag("create_record").performClick()
         compose.onNodeWithTag("quote_input").performTextInput("年底读完十二本书")
         compose.activityRule.scenario.recreate()
+        waitForStableEditorLayout()
         captureProbe("probe-draft-recreated")
+        compose.onNodeWithTag("quote_input").performScrollTo()
         compose.onNodeWithText("年底读完十二本书").assertIsDisplayed()
         compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         compose.onNodeWithText("你的镖库").assertIsDisplayed()
         compose.onNodeWithTag("create_record").performClick()
+        waitForStableEditorLayout()
+        compose.onNodeWithTag("quote_input").performScrollTo()
         compose.onNodeWithText("年底读完十二本书").assertIsDisplayed()
     }
 
