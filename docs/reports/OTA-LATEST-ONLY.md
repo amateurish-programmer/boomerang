@@ -23,4 +23,3 @@ App已有“我的 → 版本与更新”的远程OTA，独立Supabase提供清�
 2026-09-29 08:47（Asia/Shanghai）独立认证查询确认OTA目录只有 `7` 和 `latest.json`，只有 `android/7/app.apk` 一个安装包，没有遗留发布锁。公开包重新下载，SHA256为 `7ce6fc097459b0f5baddbabbbb23a6e9b33d9855a7211363ae06b28c5b5b8904`，与原0.4.2/code7一致。清理前已核对本机dist中0.4.1和0.4.2原交付包，未删除本地归档。旧链接的CDN缓存失效时间不作为即时删除证明，以认证存储清单为准。
 
 实际已脱敏结果见 [验证结果](OTA-LATEST-ONLY-results.json)。本机原始日志及下载复核包位于忽略目录 `.tools/ota-retention-20260929/`。客户端入口仍为“我的 → 版本与更新”；本次未操作用户手机。
-
