@@ -10,6 +10,14 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertTextEquals
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
+import androidx.test.platform.app.InstrumentationRegistry
+import android.os.SystemClock
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNotNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,6 +41,47 @@ class ShellNavigationTest {
         val evidence = java.io.File(instrumentation.targetContext.getExternalFilesDir(null), "acceptance/ink-ui").apply { mkdirs() }
         org.junit.Assert.assertTrue(androidx.test.uiautomator.UiDevice.getInstance(instrumentation)
             .takeScreenshot(java.io.File(evidence, "$name.png")))
+    }
+
+    /** Wait for the real IME and a stable inset, not merely Compose's idle clock. */
+    private fun waitForIme(visible: Boolean) {
+        var previousHeight = -1
+        var stableSince = 0L
+        compose.waitUntil(10_000) {
+            var matches = false
+            var height = -1
+            compose.runOnUiThread {
+                ViewCompat.getRootWindowInsets(compose.activity.window.decorView)?.let {
+                    matches = it.isVisible(WindowInsetsCompat.Type.ime()) == visible
+                    height = it.getInsets(WindowInsetsCompat.Type.ime()).bottom
+                }
+            }
+            val now = SystemClock.elapsedRealtime()
+            if (!matches || height != previousHeight) stableSince = now
+            previousHeight = height
+            matches && now - stableSince >= 300
+        }
+        compose.waitForIdle()
+    }
+
+    private fun assertEditorActionsInsideVisibleWindow() {
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        var statusBottom = 0
+        var keyboardTop = 0
+        compose.runOnUiThread {
+            val insets = requireNotNull(ViewCompat.getRootWindowInsets(compose.activity.window.decorView))
+            assertTrue("Real keyboard must be visible", insets.isVisible(WindowInsetsCompat.Type.ime()))
+            statusBottom = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            keyboardTop = device.displayHeight - insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+        }
+        listOf("返回", "新建记录", "保存记录").forEach { text ->
+            val node = device.findObject(By.text(text))
+            assertNotNull("$text must remain on screen with the keyboard open", node)
+            val bounds = requireNotNull(node).visibleBounds
+            assertTrue("$text has visible screen bounds: $bounds", bounds.width() > 0 && bounds.height() > 0)
+            assertTrue("$text must be below status bar: $bounds", bounds.top >= statusBottom)
+            assertTrue("$text must be above keyboard: $bounds", bounds.bottom <= keyboardTop)
+        }
     }
 
     @Test fun profileProvidesExplicitLoginAndImportBoundary() {
@@ -85,12 +134,16 @@ class ShellNavigationTest {
         val original = "离线闭环 ${System.nanoTime()}"
         compose.onNodeWithTag("nav_LIBRARY").performClick()
         compose.onNodeWithTag("create_record").performClick()
-        compose.onNodeWithTag("quote_input").performTextInput(original)
+        compose.onNodeWithTag("quote_input").performClick().performTextInput(original)
+        waitForIme(true)
+        compose.onNodeWithTag("back").assertIsDisplayed()
         compose.onNodeWithTag("save_record").assertIsDisplayed()
+        assertEditorActionsInsideVisibleWindow()
         captureScreenshot("shell-editor-keyboard")
         compose.onNodeWithTag("save_record").assertIsDisplayed().performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("detail_original")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("detail_original").assertTextEquals(original)
+        waitForIme(false)
         captureScreenshot("shell-detail")
         compose.onNodeWithTag("back").performClick()
         compose.onNodeWithTag("search").assertIsDisplayed()

@@ -133,12 +133,6 @@ class InkUiTest {
         var fontScale by mutableStateOf(1f)
         compose.setContent {
             val density = LocalDensity.current.density
-            SideEffect {
-                WindowCompat.getInsetsController(compose.activity.window, compose.activity.window.decorView).apply {
-                    isAppearanceLightStatusBars = !dark
-                    isAppearanceLightNavigationBars = !dark
-                }
-            }
             CompositionLocalProvider(LocalDensity provides Density(density, fontScale)) {
                 BoomerangTheme(dark) { Surface(Modifier.fillMaxSize()) {
                     // Insets use unchanged display density; only text scaling is overridden.
@@ -159,6 +153,16 @@ class InkUiTest {
         val device = UiDevice.getInstance(instrumentation)
         fun capture(name: String) {
             compose.waitForIdle()
+            compose.runOnUiThread {
+                WindowCompat.getInsetsController(compose.activity.window, compose.activity.window.decorView).apply {
+                    isAppearanceLightStatusBars = !dark
+                    isAppearanceLightNavigationBars = !dark
+                    assertEquals(!dark, isAppearanceLightStatusBars)
+                    assertEquals(!dark, isAppearanceLightNavigationBars)
+                }
+            }
+            instrumentation.waitForIdleSync()
+            device.waitForIdle(1_000)
             org.junit.Assert.assertTrue(device.takeScreenshot(File(evidence, "$name.png")))
         }
         capture("home-light")
