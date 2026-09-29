@@ -23,6 +23,12 @@ class ShellNavigationTest {
             compose.onNodeWithTag("nav_$tag").performClick()
             compose.onNodeWithText(title).assertIsDisplayed()
         }
+        compose.onNodeWithTag("nav_HOME").assertIsDisplayed()
+        compose.waitForIdle()
+        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        val evidence = java.io.File(instrumentation.targetContext.getExternalFilesDir(null), "acceptance/ink-ui").apply { mkdirs() }
+        org.junit.Assert.assertTrue(androidx.test.uiautomator.UiDevice.getInstance(instrumentation)
+            .takeScreenshot(java.io.File(evidence, "shell-home.png")))
     }
 
     @Test fun profileProvidesExplicitLoginAndImportBoundary() {
@@ -74,15 +80,16 @@ class ShellNavigationTest {
     @Test fun offlineCreateEditAndDelete() {
         compose.onNodeWithTag("create_record").performClick()
         compose.onNodeWithTag("quote_input").performTextInput("离线闭环 ${System.nanoTime()}")
-        compose.onNodeWithTag("save_record").performScrollTo().performClick()
+        compose.onNodeWithTag("save_record").assertIsDisplayed().performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("detail_original")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("edit_record").performClick()
         compose.onNodeWithTag("quote_input").performTextClearance()
         compose.onNodeWithTag("quote_input").performTextInput("修改后的离线原话")
-        compose.onNodeWithTag("save_record").performScrollTo().performClick()
+        compose.onNodeWithTag("save_record").assertIsDisplayed().performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("detail_original")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("detail_original").assertTextEquals("修改后的离线原话")
-        compose.onNodeWithTag("delete_record").performScrollTo().performClick()
+        compose.onNodeWithTag("detail_more").performClick()
+        compose.onNodeWithTag("delete_record").performClick()
         compose.onNodeWithTag("confirm_delete").performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("search")).fetchSemanticsNodes().isNotEmpty() }
     }

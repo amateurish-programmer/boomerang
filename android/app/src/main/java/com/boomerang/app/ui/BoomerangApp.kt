@@ -1,6 +1,7 @@
 package com.boomerang.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +17,10 @@ import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -44,25 +49,32 @@ fun BoomerangApp(model: ShellViewModel = viewModel()) {
     val sort by model.sort.collectAsStateWithLifecycle()
     BackHandler(enabled = screen != "main") { model.back() }
     Scaffold(bottomBar = {
-        if (screen == "main") NavigationBar {
-            Destination.entries.forEach { destination ->
-                val icon = when (destination) {
-                    Destination.HOME -> Icons.Outlined.Home
-                    Destination.LIBRARY -> Icons.Outlined.Inventory2
-                    Destination.AI -> Icons.Outlined.AutoAwesome
-                    Destination.PROFILE -> Icons.Outlined.PersonOutline
+        if (screen == "main") Column {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
+                Destination.entries.forEach { destination ->
+                    val icon = when (destination) {
+                        Destination.HOME -> Icons.Outlined.Home
+                        Destination.LIBRARY -> Icons.Outlined.Inventory2
+                        Destination.AI -> Icons.Outlined.AutoAwesome
+                        Destination.PROFILE -> Icons.Outlined.PersonOutline
+                    }
+                    NavigationBarItem(
+                        selected = selected == destination.name,
+                        onClick = { model.select(destination) },
+                        modifier = Modifier.testTag("nav_${destination.name}"),
+                        icon = { Icon(icon, contentDescription = null) },
+                        label = { Text(destination.label) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            indicatorColor = MaterialTheme.colorScheme.background),
+                    )
                 }
-                NavigationBarItem(
-                    selected = selected == destination.name,
-                    onClick = { model.select(destination) },
-                    modifier = Modifier.testTag("nav_${destination.name}"),
-                    icon = { Icon(icon, contentDescription = null) },
-                    label = { Text(destination.label) },
-                )
-            }
+        }
         }
     }) { padding ->
-        val modifier = Modifier.padding(padding)
+        val modifier = Modifier.padding(padding).consumeWindowInsets(padding)
         when (screen) {
             "updates" -> UpdateScreen(model::back, modifier)
             "extras" -> Column(modifier.fillMaxSize()) {
@@ -72,7 +84,7 @@ fun BoomerangApp(model: ShellViewModel = viewModel()) {
             "editor" -> RecordEditor(editor, errors, busy, message, model::updateContent, model::updateSources, model::save, model::back, modifier)
             "detail" -> RecordDetailScreen(detail, detail?.record?.let(model::countdown).orEmpty(), model.history(detail), busy, message, model::editCurrent, model::deleteCurrent, model::back, modifier, model::lockCurrent)
             else -> when (Destination.valueOf(selected)) {
-                Destination.HOME -> HomeScreen(library, model::countdown, model::openEditor, model::openDetail, model::retry, modifier)
+                Destination.HOME -> HomeScreen(library, model::countdown, model::openEditor, model::openDetail, model::retry, modifier, onLibrary = { model.select(Destination.LIBRARY) })
                 Destination.LIBRARY -> LibraryScreen(library, model.filtered(library.records, query, type, result, sort), query, type, result, sort,
                     model::setQuery, model::setType, model::setResult, model::setSort, model::countdown, model::openEditor, model::openDetail, model::retry, modifier)
                 Destination.AI -> key(owner) { AssistantScreen(owner, model::openAiDraft, model::syncAndOpenDetail, modifier = modifier) }

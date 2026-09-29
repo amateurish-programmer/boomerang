@@ -122,8 +122,9 @@ class InkUiTest {
         compose.runOnIdle { page = "library" }; capture("library-light")
         compose.runOnIdle { page = "detail" }; capture("detail-light")
         compose.runOnIdle { dark = true }; capture("detail-dark")
-        compose.runOnIdle { dark = false; fontScale = 1.5f; page = "editor" }
+        compose.runOnIdle { dark = false; fontScale = 2f; page = "editor" }
         compose.onNodeWithTag("save_record").assertIsDisplayed()
+        compose.onNodeWithTag("back").assertIsDisplayed()
         capture("editor-large-text")
     }
 }
