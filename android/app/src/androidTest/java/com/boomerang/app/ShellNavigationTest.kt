@@ -24,11 +24,15 @@ class ShellNavigationTest {
             compose.onNodeWithText(title).assertIsDisplayed()
         }
         compose.onNodeWithTag("nav_HOME").assertIsDisplayed()
+        captureScreenshot("shell-home")
+    }
+
+    private fun captureScreenshot(name: String) {
         compose.waitForIdle()
         val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
         val evidence = java.io.File(instrumentation.targetContext.getExternalFilesDir(null), "acceptance/ink-ui").apply { mkdirs() }
         org.junit.Assert.assertTrue(androidx.test.uiautomator.UiDevice.getInstance(instrumentation)
-            .takeScreenshot(java.io.File(evidence, "shell-home.png")))
+            .takeScreenshot(java.io.File(evidence, "$name.png")))
     }
 
     @Test fun profileProvidesExplicitLoginAndImportBoundary() {
@@ -78,9 +82,21 @@ class ShellNavigationTest {
     }
 
     @Test fun offlineCreateEditAndDelete() {
+        val original = "离线闭环 ${System.nanoTime()}"
+        compose.onNodeWithTag("nav_LIBRARY").performClick()
         compose.onNodeWithTag("create_record").performClick()
-        compose.onNodeWithTag("quote_input").performTextInput("离线闭环 ${System.nanoTime()}")
+        compose.onNodeWithTag("quote_input").performTextInput(original)
+        compose.onNodeWithTag("save_record").assertIsDisplayed()
+        captureScreenshot("shell-editor-keyboard")
         compose.onNodeWithTag("save_record").assertIsDisplayed().performClick()
+        compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("detail_original")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("detail_original").assertTextEquals(original)
+        captureScreenshot("shell-detail")
+        compose.onNodeWithTag("back").performClick()
+        compose.onNodeWithTag("search").assertIsDisplayed()
+        compose.onNodeWithText(original).performScrollTo().assertIsDisplayed()
+        captureScreenshot("shell-library")
+        compose.onNodeWithText(original).performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("detail_original")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("edit_record").performClick()
         compose.onNodeWithTag("quote_input").performTextClearance()

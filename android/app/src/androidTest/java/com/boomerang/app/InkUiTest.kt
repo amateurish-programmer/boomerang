@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
@@ -104,11 +106,11 @@ class InkUiTest {
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) {
                 BoomerangTheme(false) {
-                    Box(Modifier.fillMaxSize()) {
+                    Surface(Modifier.fillMaxSize()) { Box(Modifier.fillMaxSize().safeDrawingPadding()) {
                         LibraryScreen(LibraryState(false, listOf(record)), listOf(record), query, "", "", "due",
                             { query = it }, {}, {}, {}, { "明天到期" }, {}, { opened = it }, {},
                             Modifier.fillMaxWidth().height(360.dp))
-                    }
+                    } }
                 }
             }
         }
@@ -131,14 +133,23 @@ class InkUiTest {
         var fontScale by mutableStateOf(1f)
         compose.setContent {
             val density = LocalDensity.current.density
+            SideEffect {
+                WindowCompat.getInsetsController(compose.activity.window, compose.activity.window.decorView).apply {
+                    isAppearanceLightStatusBars = !dark
+                    isAppearanceLightNavigationBars = !dark
+                }
+            }
             CompositionLocalProvider(LocalDensity provides Density(density, fontScale)) {
                 BoomerangTheme(dark) { Surface(Modifier.fillMaxSize()) {
+                    // Insets use unchanged display density; only text scaling is overridden.
+                    Box(Modifier.fillMaxSize().safeDrawingPadding()) {
                     when (page) {
                         "home" -> HomeScreen(LibraryState(false, listOf(record)), { "明天到期" }, {}, {}, {})
                         "library" -> LibraryScreen(LibraryState(false, listOf(record)), listOf(record), "", "", "", "due",
                             {}, {}, {}, {}, { "明天到期" }, {}, {}, {})
                         "detail" -> RecordDetailScreen(RecordDetail(record, emptyList(), emptyList()), "明天到期", emptyList(), false, null, {}, {}, {})
                         else -> RecordEditor(EditorState(record.content), emptyMap(), false, null, {}, {}, {}, {})
+                    }
                     }
                 } }
             }
