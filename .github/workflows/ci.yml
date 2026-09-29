@@ -9,6 +9,7 @@ on:
         type: choice
         options:
           - '[26,33,35]'
+          - '[26]'
           - '[35]'
         default: '[26,33,35]'
 permissions:

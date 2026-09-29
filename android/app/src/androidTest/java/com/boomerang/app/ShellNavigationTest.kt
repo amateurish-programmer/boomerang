@@ -17,6 +17,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.platform.app.InstrumentationRegistry
 import android.os.SystemClock
 import android.graphics.Rect
+import android.content.res.Configuration
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNotNull
 import org.junit.Rule
@@ -112,6 +113,18 @@ class ShellNavigationTest {
         compose.waitForIdle()
     }
 
+    private fun waitForNightAppearance(dark: Boolean) {
+        val expected = if (dark) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
+        compose.waitUntil(10_000) {
+            var actual = 0
+            compose.runOnUiThread {
+                actual = compose.activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+            }
+            actual == expected
+        }
+        compose.waitForIdle()
+    }
+
     private fun assertEditorActionsInsideVisibleWindow() {
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         var statusBottom = 0
@@ -179,7 +192,35 @@ class ShellNavigationTest {
         compose.onNodeWithText("AI 助手").assertIsDisplayed()
     }
 
-    @Test fun offlineCreateEditAndDelete() {
+    @Test fun offlineCreateEditAndDelete() = exerciseOfflineCreateEditAndDelete("shell", true)
+
+    @Test fun realSystemNightModeOfflineFlow() {
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        val initial = device.executeShellCommand("cmd uimode night").trim()
+        val originalMode = Regex("^Night mode: (yes|no|auto)$").matchEntire(initial)?.groupValues?.get(1)
+            ?: error("Cannot safely restore unsupported system night mode: $initial")
+        var changed = false
+        try {
+            if (originalMode != "yes") {
+                changed = true // Restore even if the shell command changes mode before reporting an error.
+                val result = device.executeShellCommand("cmd uimode night yes").trim()
+                assertTrue("Could not enable system night mode: $result", result == "Night mode: yes")
+            }
+            waitForNightAppearance(true)
+            exerciseOfflineCreateEditAndDelete("dark-shell", false)
+            compose.onNodeWithTag("nav_HOME").performClick()
+            compose.onNodeWithText("回旋镖").assertIsDisplayed()
+            captureScreenshot("dark-shell-home")
+        } finally {
+            if (changed) {
+                val result = device.executeShellCommand("cmd uimode night $originalMode").trim()
+                assertTrue("Could not restore system night mode: $result", result == "Night mode: $originalMode")
+                if (originalMode != "auto") waitForNightAppearance(originalMode == "yes")
+            }
+        }
+    }
+
+    private fun exerciseOfflineCreateEditAndDelete(evidencePrefix: String, legacyProbe: Boolean) {
         val original = "离线闭环 ${System.nanoTime()}"
         compose.onNodeWithTag("nav_LIBRARY").performClick()
         compose.onNodeWithTag("create_record").performClick()
@@ -187,18 +228,19 @@ class ShellNavigationTest {
         waitForIme(true)
         compose.onNodeWithTag("back").assertIsDisplayed()
         compose.onNodeWithTag("save_record").assertIsDisplayed()
-        captureProbe("probe-editor-keyboard")
+        if (legacyProbe) captureProbe("probe-editor-keyboard")
+        if (!legacyProbe) captureScreenshot("$evidencePrefix-editor-keyboard")
         assertEditorActionsInsideVisibleWindow()
-        captureScreenshot("shell-editor-keyboard")
+        if (legacyProbe) captureScreenshot("$evidencePrefix-editor-keyboard")
         compose.onNodeWithTag("save_record").assertIsDisplayed().performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("detail_original")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("detail_original").assertTextEquals(original)
         waitForIme(false)
-        captureScreenshot("shell-detail")
+        captureScreenshot("$evidencePrefix-detail")
         compose.onNodeWithTag("back").performClick()
         compose.onNodeWithTag("search").assertIsDisplayed()
         compose.onNodeWithText(original).performScrollTo().assertIsDisplayed()
-        captureScreenshot("shell-library")
+        captureScreenshot("$evidencePrefix-library")
         compose.onNodeWithText(original).performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(androidx.compose.ui.test.hasTestTag("detail_original")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("edit_record").performClick()
