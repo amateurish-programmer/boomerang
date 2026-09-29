@@ -18,6 +18,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
+import androidx.test.uiautomator.StaleObjectException
 import com.boomerang.app.data.BoomerangDatabase
 import com.boomerang.app.data.BoomerangRepository
 import com.boomerang.app.domain.RecordContent
@@ -369,10 +370,18 @@ class ExtrasSystemTest {
                 ?: device.findObject(By.res(documents, "toolbar"))?.findObject(By.clazz("android.widget.ImageButton"))
             checkNotNull(drawer) { "DocumentsUI navigation drawer not found" }.click()
         }
-        val list = device.wait(Until.findObject(By.res(documents, "roots_list")), 5_000)
-        val target = list?.findObject(downloads) ?: device.wait(Until.findObject(downloads), 5_000)
-        checkNotNull(target) { "System Downloads provider not found" }.click()
-        device.waitForIdle()
+        for (attempt in 1..3) {
+            try {
+                val list = device.wait(Until.findObject(By.res(documents, "roots_list")), 5_000)
+                val target = list?.findObject(downloads) ?: device.wait(Until.findObject(downloads), 5_000)
+                checkNotNull(target) { "System Downloads provider not found" }.click()
+                device.waitForIdle()
+                return
+            } catch (error: StaleObjectException) {
+                if (attempt == 3) throw error
+                // DocumentsUI replaced its accessibility tree; reacquire the root and label.
+            }
+        }
     }
 
     private fun saveDocument(documents: String, name: String): Unit {

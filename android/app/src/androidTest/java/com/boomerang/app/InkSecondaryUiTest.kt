@@ -7,6 +7,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.*
@@ -22,13 +24,38 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
+import org.junit.rules.TestRule
 import org.junit.runner.RunWith
+import org.junit.runners.model.Statement
 import java.io.File
 
 /** Synthetic display states; no account, update service, installer or file picker is invoked. */
 @RunWith(AndroidJUnit4::class)
 class InkSecondaryUiTest {
-    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+    val compose = createAndroidComposeRule<ComponentActivity>()
+    private val backupFontScale = TestRule { base, description -> object : Statement() {
+        override fun evaluate() {
+            if (description.methodName != "backupPreviewOffersCancelSkipAndConditionalReplace") {
+                base.evaluate()
+                return
+            }
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            val device = UiDevice.getInstance(instrumentation)
+            val original = device.executeShellCommand("settings get system font_scale").trim()
+            val originalScale = instrumentation.targetContext.resources.configuration.fontScale
+            try {
+                device.executeShellCommand("settings put system font_scale 2.0")
+                awaitFontScale(instrumentation.targetContext.resources, 2f)
+                base.evaluate()
+            } finally {
+                if (original.toFloatOrNull() == null) device.executeShellCommand("settings delete system font_scale")
+                else device.executeShellCommand("settings put system font_scale $original")
+                awaitFontScale(instrumentation.targetContext.resources, originalScale)
+            }
+        }
+    } }
+    @get:Rule val rules: TestRule = RuleChain.outerRule(backupFontScale).around(compose)
     private val manifest = UpdateManifest(1, "com.boomerang.app", 99, "9.9", 26,
         "https://example.org/synthetic.apk", "0".repeat(64), 2_097_152, "合成更新说明", "2026-09-29T00:00:00Z")
 
@@ -76,12 +103,15 @@ class InkSecondaryUiTest {
         val calls = mutableListOf<String>()
         var conflicts by mutableIntStateOf(0)
         var busy by mutableStateOf(false)
-        compose.setContent { CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) {
-            BoomerangTheme { ImportPreviewDialog(5, conflicts,
+        compose.setContent { BoomerangTheme { ImportPreviewDialog(5, conflicts,
                 List(5) { "合成记录 $it：这是一段用来检查长预览滚动的原话。" }, busy,
                 { calls += "skip" }, { calls += "replace" }, { calls += "cancel" },
                 modifier = Modifier.height(360.dp).testTag("bounded_import_dialog")) }
-        } }
+        }
+        val layouts = mutableListOf<TextLayoutResult>()
+        val textLayout = compose.onNodeWithText("确认导入预览").fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult]
+        assertTrue(textLayout.action?.invoke(layouts) == true)
+        assertEquals(2f, layouts.single().layoutInput.density.fontScale, 0.05f)
         val actualHeight = compose.onNodeWithTag("bounded_import_dialog").fetchSemanticsNode().boundsInRoot.height
         assertTrue(actualHeight > 0 && actualHeight <= 360 * compose.activity.resources.displayMetrics.density + 1)
         compose.onNodeWithText("合成记录 4：这是一段用来检查长预览滚动的原话。").performScrollTo().assertIsDisplayed()
@@ -94,10 +124,19 @@ class InkSecondaryUiTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val evidence = File(instrumentation.targetContext.getExternalFilesDir(null), "acceptance/ink-secondary").apply { mkdirs() }
         assertTrue(UiDevice.getInstance(instrumentation).takeScreenshot(File(evidence, "import-preview-large-text-short-synthetic.png")))
+        compose.onNodeWithText("取消").performScrollTo().assertIsDisplayed()
+        assertTrue(UiDevice.getInstance(instrumentation).takeScreenshot(File(evidence, "import-preview-large-text-short-cancel-synthetic.png")))
         compose.runOnIdle { busy = true }
         compose.onNodeWithText("取消").assertIsNotEnabled()
         compose.onNodeWithText("跳过重复并导入").assertIsNotEnabled()
         compose.onNodeWithText("替换重复并导入").assertIsNotEnabled()
+    }
+
+    private fun awaitFontScale(resources: android.content.res.Resources, expected: Float) {
+        val deadline = android.os.SystemClock.uptimeMillis() + 10_000
+        while (kotlin.math.abs(resources.configuration.fontScale - expected) > 0.05f &&
+            android.os.SystemClock.uptimeMillis() < deadline) Thread.sleep(100)
+        assertEquals("System font scale did not apply", expected, resources.configuration.fontScale, 0.05f)
     }
 
     @Test fun syntheticUpdateScreenshotsCoverLightDarkAndLargeText() {
