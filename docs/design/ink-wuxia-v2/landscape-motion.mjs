@@ -1,4 +1,4 @@
-import {effectiveMode, shouldAnimate, createFrameLoop} from './motion.mjs';
+import {effectiveMode, shouldAnimate, createFrameLoop, shouldEnter, shouldCancelFeedback, parallaxOffset} from './motion.mjs';
 
 export function installLandscapeMotion() {
   const system = matchMedia('(prefers-reduced-motion: reduce)');
@@ -54,7 +54,7 @@ export function installLandscapeMotion() {
       if (phone.dataset.motionState !== 'running' || entry.scrollFrame !== null) return;
       entry.scrollFrame = request(() => {
         entry.scrollFrame = null;
-        if (phone.dataset.motionState === 'running') canvas.style.transform = `translateY(${Math.min(6, scroll.scrollTop * .025)}px)`;
+        if (phone.dataset.motionState === 'running') canvas.style.transform = `translateY(${parallaxOffset(scroll.scrollTop)}px)`;
       });
     }, {passive:true});
     new ResizeObserver(() => {size(); refresh();}).observe(phone);
@@ -81,6 +81,11 @@ export function installLandscapeMotion() {
     for (const entry of entries) {
       const panelVisible = entry.phone.getClientRects().length > 0;
       const running = shouldAnimate({mode, pageVisible:!document.hidden, panelVisible, heroVisible:available(entry,true), dialogOpen:dialog.open});
+      const previousMode = entry.phone.dataset.motionMode;
+      const entranceAvailable = shouldEnter(mode, available(entry,true));
+      entry.phone.dataset.motionEntrance = entranceAvailable ? 'available' : 'unavailable';
+      // Removing the trigger ends interrupted entrances at stable opacity; resume does not replay.
+      if (!entranceAvailable) entry.phone.classList.remove('motion-enter');
       entry.phone.dataset.motionMode = mode;
       entry.phone.dataset.motionState = running ? 'running' : 'paused';
       entry.loop.setActive(running);
@@ -89,7 +94,8 @@ export function installLandscapeMotion() {
         if (entry.scrollFrame !== null) cancel(entry.scrollFrame);
         entry.scrollFrame = null; entry.canvas.style.transform = '';
       }
-      if (mode !== 'full' || !available(entry,false)) clearFeedback(entry);
+      if (running) entry.canvas.style.transform = `translateY(${parallaxOffset(entry.scroll.scrollTop)}px)`;
+      if (shouldCancelFeedback(previousMode, mode, available(entry,false))) clearFeedback(entry);
     }
   }
   function feedback(phone) {
@@ -126,7 +132,9 @@ export function installLandscapeMotion() {
     for (const entry of entries) entry.phone.classList.remove('motion-enter');
     // Force a style boundary so a repeat click restarts the finite CSS animations.
     void document.body.offsetWidth;
-    for (const entry of entries) entry.phone.classList.add('motion-enter');
+    for (const entry of entries) {
+      if (shouldEnter(effectiveMode(selected,system.matches), available(entry,true))) entry.phone.classList.add('motion-enter');
+    }
   }
   for (const button of document.querySelectorAll('[data-motion-button]')) button.addEventListener('click', () => {
     selected = button.dataset.motionButton;

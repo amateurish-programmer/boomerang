@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {effectiveMode, shouldAnimate, createFrameLoop} from '../docs/design/ink-wuxia-v2/motion.mjs';
+import {effectiveMode, shouldAnimate, createFrameLoop, shouldEnter, shouldCancelFeedback, parallaxOffset} from '../docs/design/ink-wuxia-v2/motion.mjs';
 
 for (const selected of ['full', 'reduced', 'off']) {
   for (const system of [false, true]) test(`mode ${selected}, system reduction ${system}`, () => {
@@ -45,4 +45,25 @@ test('destroy terminates permanently including late callbacks', () => {
 test('draw can stop the loop without scheduling another frame', () => {
   const h = harness(() => h.loop.setActive(false)); h.loop.setActive(true); h.frame(10);
   assert.equal(h.queued.size, 0);
+});
+
+for (const mode of ['full', 'reduced', 'off']) {
+  test(`finite entrance respects availability in ${mode}`, () => {
+    assert.equal(shouldEnter(mode, true), mode !== 'off');
+    assert.equal(shouldEnter(mode, false), false);
+  });
+}
+test('unchanged reduced feedback survives unrelated refresh', () => {
+  assert.equal(shouldCancelFeedback('reduced', 'reduced', true), false);
+});
+test('feedback ends on mode change, off, or unavailability', () => {
+  assert.equal(shouldCancelFeedback('full', 'reduced', true), true);
+  assert.equal(shouldCancelFeedback('reduced', 'full', true), true);
+  assert.equal(shouldCancelFeedback('off', 'off', true), true);
+  assert.equal(shouldCancelFeedback('reduced', 'reduced', false), true);
+});
+test('restored parallax uses current scroll position with bounded offset', () => {
+  assert.equal(parallaxOffset(100), 2.5);
+  assert.equal(parallaxOffset(1000), 6);
+  assert.equal(parallaxOffset(-20), 0);
 });

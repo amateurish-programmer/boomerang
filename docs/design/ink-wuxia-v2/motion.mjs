@@ -4,6 +4,16 @@ export function effectiveMode(selected, systemReduced) {
 export function shouldAnimate({mode, pageVisible, panelVisible, heroVisible, dialogOpen}) {
   return mode === 'full' && pageVisible && panelVisible && heroVisible && !dialogOpen;
 }
+// Finite effects may run in reduced mode while the continuous loop is paused.
+export function shouldEnter(mode, available) {
+  return mode !== 'off' && available;
+}
+export function shouldCancelFeedback(previousMode, mode, available) {
+  return previousMode !== mode || mode === 'off' || !available;
+}
+export function parallaxOffset(scrollTop) {
+  return Math.max(0, Math.min(6, scrollTop * .025));
+}
 export function createFrameLoop({request, cancel, draw}) {
   let active = false, destroyed = false, pending = null, lastTime = null, generation = 0;
   function schedule() {
