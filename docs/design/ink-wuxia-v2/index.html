@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <title>回旋镖 · 青绿山水首页样板</title>
   <link rel="stylesheet" href="style.css">
-  <script src="preview.js" defer></script>
+  <script type="module" src="preview.js"></script>
 </head>
 <body data-view="both">
   <svg class="symbol-bank" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -24,9 +24,9 @@
       <div>
         <p class="eyebrow">BOOMERANG / DESIGN STUDY 02</p>
         <h1>青绿入墨，山水有声。</h1>
-        <p class="intro">完整山水构图，真实页面排版。先看山的质感与布局，再让云雾和墨尘流动。</p>
+        <p class="intro">完整山水构图，真实页面排版。山形保持稳定，云雾与墨尘缓缓流动。</p>
       </div>
-      <p class="edition">首页视觉样板<br><span>2026.10.02 · 静态构图</span></p>
+      <p class="edition">首页视觉样板<br><span>2026.10.02 · 动态样板</span></p>
     </header>
     <div class="review-bar">
       <div class="view-options" role="group" aria-label="预览主题">
@@ -35,6 +35,15 @@
         <button type="button" data-view-button="dark" aria-pressed="false">夜墨</button>
       </div>
       <p>演示数据 · 可点击记录、新建与导航查看布局</p>
+    </div>
+    <div class="motion-bar">
+      <div class="view-options motion-options" role="group" aria-label="动效强度">
+        <button type="button" data-motion-button="full" aria-pressed="true">完整</button>
+        <button type="button" data-motion-button="reduced" aria-pressed="false">减少</button>
+        <button type="button" data-motion-button="off" aria-pressed="false">关闭</button>
+        <button type="button" data-motion-replay>重播动效</button>
+      </div>
+      <p>山形不动 · 背景与遮挡时暂停 · 跟随系统减少动效设置</p>
     </div>
     <section class="samples" aria-label="首页明暗对照">
       <article class="sample" data-sample="light">
@@ -114,7 +123,7 @@
         <p class="sample-caption">保留同一山形，重新渲染深青地色和月雾；暖朱砂仍指向主要操作。</p>
       </article>
     </section>
-    <footer class="studio-footer"><p>本轮审核：山水质感、山景比例、明暗颜色与首页布局。</p><p>静态样板。云雾、粒子与过渡将在构图确认后加入；此页不连接业务数据。</p><a href="SPEC.md">查看设计说明</a> · <a href="PROMPTS.md">查看素材提示词</a></footer>
+    <footer class="studio-footer"><p>本轮审核：云雾、墨尘与温和过渡的强度和节奏。</p><p>动态样板。山形不动，后台与遮挡时暂停；演示输入不保存、不上传，此页不连接业务数据。</p><a href="SPEC.md">查看设计说明</a> · <a href="PROMPTS.md">查看素材提示词</a></footer>
   </main>
   <dialog id="demo-dialog" aria-labelledby="dialog-title">
     <form method="dialog" class="dialog-shell">
