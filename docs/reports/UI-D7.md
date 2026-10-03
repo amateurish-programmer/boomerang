@@ -42,7 +42,7 @@ API26/33栈证实专项夹具有三个错误：STARTED状态查询不可见Compo
 
 API35再次仅收到3项完整结果，在生命周期用例启动后消失。新UTP留存该用例的部分logcat，末尾到Activity RESUMED，未显示应用异常；清理时模拟器控制端口5554 Connection refused，说明模拟器进程/实例已丢失，但没有确定驱动崩溃栈。运行器37.2.12启动使用SwiftShader Vulkan；依据[Android官方排障](https://developer.android.com/studio/run/emulator-troubleshooting)，只对API35增加关闭Vulkan的启动参数作单变量对照，保留应用、测试、动作版本及矩阵。该调整是CI图形兼容假设；待实际重跑，不把它当成已证明的业务修复或手机性能结果。
 
-CI对照提交 `b34aae75f9b6bb2e7d34ab58a62541d95d84e173`仅增加一个启动参数行：原默认参数显式保留，只有API35附加-feature -Vulkan。独立规范/质量审查通过，无新问题；实际身份SSH签名已用已配置公钥在本机验证，GitHub对公钥仍显示unknown_key。源码4b29bc4与全部测试保持原样。阶段改动已建立[草稿PR1](https://github.com/amateurish-programmer/boomerang/pull/1)，完整设备验收之前不合并/发布。私有候选构建可并行准备，但完整矩阵及视觉通过以前不安装到手机。
+CI对照提交 `b34aae75f9b6bb2e7d34ab58a62541d95d84e173`仅增加一个启动参数行：原默认参数显式保留，只有API35附加-feature -Vulkan。独立规范/质量审查通过，无新问题；实际身份SSH签名已用已配置公钥在本机验证，GitHub对公钥仍显示unknown_key。源码4b29bc4与全部测试保持原样。阶段改动已建立[草稿PR1](https://github.com/amateurish-programmer/boomerang/pull/1)，完整设备验收之前不合并/发布。私有候选构建并行准备；此为当时的安装顺序，随后用户明确授权提前私有候选安装，最终又暂缓手动安装，见下述记录。
 
 先行[API35 CI37082606430](https://github.com/amateurish-programmer/boomerang/actions/runs/37082606430)使用7bdd1ec，contracts/Android成功；设备主批次预期61项，到第53项出现旧PendingIntent用例失败，仅收到52项完整结果。Gradle失败页的栈为空，随后ADB后处理停滞；新版提交使工作流最终cancelled。这是实际失败/不完整运行，不能记作仅例行取消或设备通过。现有HTML/日志已下载保留，根因未确认；新增有界ADB采集与原始UTP结果留存后复现，再决定修复。没有基于猜测改通知路由或放宽原测试。
 
@@ -61,3 +61,15 @@ CI对照提交 `b34aae75f9b6bb2e7d34ab58a62541d95d84e173`仅增加一个启动�
 ## 待验收与后续
 
 完成原生实施、任务与整分支审查、规定构建后，自动进入 UI-D8 CI 设备矩阵与原生实拍检查。真机动画、内存/帧时、数据保留与 OTA 升级分别验收，不能由模拟器替代。此前 0.5.0 手机安装/原数据验收仍未关闭；百炼暂缓，生产 Cron 关闭。
+
+## 第三轮完整矩阵与私有候选
+
+[矩阵37088178975](https://github.com/amateurish-programmer/boomerang/actions/runs/37088178975)源码266b6f2（应用及测试仍4b29bc4）：contracts/Android成功；API26原始XML主批次80项、0失败/错误/跳过，原2项系统面板失败未复现；API33动效17项通过，主批次78项中Downloads导出返回应用等待1项失败，权限独立批次通过。API35关闭Vulkan后仍在生命周期用例启动后丢失模拟器，只收到3项完整结果；部分日志到PAUSED及加载libGLES，未给出确定驱动栈。主机/客体快照不证明OOM，不能据此改业务或删测试。原始结果保留；API26的UTP和拷贝XML是同批结果，不重复计数。
+
+本轮API26明暗首页合成截图已目视检查，完整山水、标题、记录与主按钮在360dp正常窗口清晰可见。截图是隔离测试Composable，不能据此验收整机导航/真机帧时。
+
+[私有签名候选37088181917](https://github.com/amateurish-programmer/boomerang/actions/runs/37088181917)源码266b6f2，publish_ota=false。包名com.boomerang.app，0.5.0/code8，16783491字节，SHA256 `b54e1ceaffb9ceddc37dd6a8bcbf4a2632d8f36cd1771adb841b0f1c68764f3b`；apksigner通过，证书与原安装包一致。仅留于本项目忽略目录，本机只读下载测试同摘要；未更新公开清单。以后仅CI/文档改变不改变此候选对应的应用源码4b29bc4，但报告仍记录不同构建提交。
+
+自动审批首次拒绝打开手机候选下载页，仅返回blocked by policy；用户明确授权安装后第二次相同行为仍被拒绝，命令均未执行，未设ADB反向端口、未导航、未安装。已向用户说明原因并提供手动USB文件传输及系统覆盖安装步骤；用户选择暂时无法手动安装，先继续云端验证。手机候选/数据保留/性能仍未验收，不能替用户确认系统身份，也不通过其他工具绕过拒绝。
+
+Task5仅CI诊断：有界Node标准库MINIDUMP最小异常/模块读取（不上传原dump或任意内存、字符串、路径），API35尝试当前支持的swiftshader，保留Vulkan关闭及其他API设置。初版77ab510的15项测试通过，独立审查发现目录校验后打开的替换竞态；修复9a4b911将遍历绑定验证句柄，先RED复现后16项GREEN，由控制者再次实跑16项通过。两提交SSH签名已核验，精确复审确认已解决、无新重要问题；实际Linux采集、整分支补充审查与完整矩阵仍待结果。该实验不宣称已修复模拟器或识别根因。
