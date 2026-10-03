@@ -62,6 +62,7 @@ fi
 if ! cat > "$private_dir/commands" 2>/dev/null <<'GDB_COMMANDS'
 set confirm off
 set pagination off
+handle SIGUSR1 nostop noprint pass
 handle SIGSEGV SIGABRT SIGBUS SIGFPE SIGILL stop print pass
 python
 import gdb
