@@ -102,3 +102,12 @@ Task7为默认关闭的专项退出诊断：只在显式输入和API35时，对�
 运行修复1签名ced6d78：仅CI与测试脚本，临时信号/stderr改为私有0700目录内预建0600文件；stderr只输出固定错误枚举。显式API35诊断步骤新增10秒内的直接/tmp文件和私有目录文件root打开对照、只读数字protected_regular及精确清理，不修改主机安全设置。独立精确复审无新增Critical/Important/Minor，控制者语法/diff/SSH签名通过。其探针、附加与真实目标退出原因仍须下一云端运行验证；源码修正不称根因已解决。
 
 37093742902的contracts原日志另确认26项AI边界、25项浏览器动效、16项崩溃元数据、23项OTA边界和20项隔离研究/租约，共110项Node测试全部通过，0失败/跳过；另有数据库迁移及双用户RLS/历史/同步断言通过。这是隔离CI证据，不是百炼真实调用或生产数据库写入验收。
+
+## 退出信号已确认与版本对照
+
+[专项37095346773](https://github.com/amateurish-programmer/boomerang/actions/runs/37095346773)精确9a47e8f871090a5127e048754c37310b0081ed1a。contracts/Android通过；API35权限1项通过，主批次仍仅迁移1项完成、后续为空failure，不能记完整验收通过。
+
+实际Linux探针protected_regular=2，直接/tmp预建文件的root打开permission_denied/exit1，私有目录的root打开open_ok/exit0，探针清理exit0。原错误stderr未保留，不能倒推上一轮具体strace错误字符串；本轮修复后的追踪真实可用：tracer_exit0、stderr_reason=none、filter0、cleanup0，target_exit=observed。TID4280收到SIGSEGV/SEGV_MAPERR，明确目标QEMU3336最终“killed by SIGSEGV (core dumped)”，保留120行内信号/退出事件。此为宿主模拟器段错误证据，不能把跟踪器exit0当模拟器成功，也不能把core dumped标签当实际可用转储。内核仍无匹配事件，Crashpadmissing_dump，尚无精确崩溃模块/堆栈。没有捕获或上传core/任意内存。
+
+只读取得上次通过的API35[36522534797](https://github.com/amateurish-programmer/boomerang/actions/runs/36522534797)实际job109261560484日志：37.1.11.0/build15917651；当前故障运行实际37.2.12.0/build16428233。下一Task8仅对API35使用原已通过的官方构建作单变量版本对照，保留当前swiftshader/Vulkan关闭、原测试与全部断言，退出追踪关闭；正式完整矩阵同样关闭追踪。action v2确有emulator-build入口，官方15917651归档HEAD200，仅CI宿主下载，不在本地安装。若对照有效，只能称CI兼容性绕行，不能声称已确定37.2.12内部具体缺陷；真机候选安装仍按用户选择暂缓。
+Task8源码签名e16519e只新增API35条件emulator-build15917651一行，API26/33空覆盖保留原路径；独立规范/质量审查通过无新增问题，控制者diff/实际SSH签名核验通过。下一次关闭追踪的API35原全用例对照仍待实际启动版本/原始结果，未称已修复。

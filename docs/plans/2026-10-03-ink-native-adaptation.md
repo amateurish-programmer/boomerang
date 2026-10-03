@@ -172,3 +172,16 @@ Task7源码完成1bb739c，独立规范/质量审查通过；实际Linux退出�
 Task7运行修复1：37093742902跟踪器exit1且无输出，需用同CI宿主的最小/tmp输出权限正反对照验证protected_regular假设；跟踪临时输出改为独有0700目录内预建0600文件，保存临时stderr仅映射白名单错误枚举后删除。不改内核权限或目标进程，原始退出与默认关闭门槛保持。实际附加失败原因和修复须由云端运行分别证实。
 
 Task7运行修复1源码ced6d78独立精确复审通过；下一专项执行原测试及临时文件权限对照，仍不替代关闭追踪的完整矩阵。
+
+### Task 8: contrast API35 with its last accepted emulator build
+
+Actual opt-in37095346773 exact9a47e8f confirms host QEMU3336 killed by SIGSEGV; tracerexit0/errornone/filter0/cleanup0, actual sticky/tmp root-open permission_denied1 vs private-directory open_ok0 with protected_regular2. Still missing dump/kernel event, no crashing-module stack. Existing accepted API35 run36522534797 job109261560484 exact6ec7cd1 used Android emulator37.1.11.0 build15917651. Current crashes run on37.2.12.0 build16428233. This is a concrete changed dependency for one-variable compatibility contrast, not proof of the precise module/regression.
+
+- Scope ONLY .github/workflows/ci.yml. Add exact action input beside api-level in existing reactivecircus/android-emulator-runner@v2 with block:
+  emulator-build: ${{ matrix.api == 35 && '15917651' || '' }}
+  An explanatory short YAML comment may state that API35 contrasts last accepted build after host SIGSEGV. Empty value on26/33 preserves their existing latest binary. Preserve app/tests/guards/final status, API-level/google_apis/x86_64, all GPU/Vulkan flags, tracer defaultfalse/gating and artifacts. No other fix, action version, dependency or assertion change. No local installation or worker network/cloud/device action.
+- Actual v2 action.yml exposes emulator-build, v2 sdk-installer.ts builds official https://dl.google.com/android/repository/emulator-linux_x64-15917651.zip; controller HEAD200 size334378080, no local binary download. Only ephemeral CI runner downloads official archived build through existing action. Original app/tests4b unchanged.
+- Source verification explicit/full/staged git diff --check, source review of only exact YAML addition, existing Git Bash bash-n script unchanged if needed. No tests mirroring YAML/no local Android rerun. Signed actual Wuhao semantic commit/table ONLY workflow. Preserve parent's3doc edits. Report task-8-report.md with commands/output/remaining gates, no subagents/push.
+- Controller independent review before publishing. Focused original all-tests API35 with trace_host_exit=false must verify startup37.1.11 build15917651 and actual raw counts/screenshots; if passes, immediately run full[26,33,35] with tracingfalse. No skipped old/new tests or improved timeout claims. Pin is a compatibility workaround if demonstrated, not exact crash-module diagnosis. Phone candidate/realperformance remain user-deferred; no merge/OTA before acceptance.
+
+Primary checked2026-10-03: https://raw.githubusercontent.com/ReactiveCircus/android-emulator-runner/v2/action.yml and /v2/src/sdk-installer.ts. Ruling: contrast exact last accepted API35 emulator build only, retaining currently validated graphics flags; costs deferred upgrade of the API35 CI emulator if it works, no application platform/version downgrade.
