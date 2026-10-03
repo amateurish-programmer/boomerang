@@ -89,6 +89,61 @@ def stop_signal_name(value):
     pattern = r"SIG(?:HUP|INT|QUIT|ILL|TRAP|ABRT|IOT|BUS|FPE|KILL|USR1|SEGV|USR2|PIPE|ALRM|TERM|STKFLT|CHLD|CLD|CONT|STOP|TSTP|TTIN|TTOU|URG|XCPU|XFSZ|VTALRM|PROF|WINCH|IO|POLL|PWR|SYS|UNUSED|3[2-9]|[45][0-9]|6[0-4])"
     return safe_name(value, pattern, 12)
 
+def mapping_snapshot():
+    # Mapping metadata only: never /proc/mem, memory bytes, or raw map output.
+    if gdb.selected_inferior().pid != target_pid:
+        return "pid_mismatch", []
+    try:
+        with open("/proc/%d/maps" % target_pid, "rb") as source:
+            data = source.read(1024 * 1024)
+    except OSError:
+        return "unreadable", []
+    if gdb.selected_inferior().pid != target_pid:
+        return "pid_mismatch", []
+    # At the cap, completeness is unknown; do not accept a truncated snapshot.
+    if len(data) == 1024 * 1024:
+        return "oversize", []
+    try:
+        lines = data.decode("utf-8").splitlines()
+    except UnicodeError:
+        return "invalid", []
+    if not lines or len(lines) > 16384:
+        return "invalid", []
+    mappings = []
+    for line in lines:
+        fields = line.split(None, 5)
+        if len(fields) < 5:
+            return "invalid", []
+        bounds, permissions, offset = fields[:3]
+        if not re.fullmatch(r"[0-9a-fA-F]{1,16}-[0-9a-fA-F]{1,16}", bounds, re.ASCII) or not re.fullmatch(r"[r-][w-][x-][ps]", permissions, re.ASCII) or not re.fullmatch(r"[0-9a-fA-F]{1,16}", offset, re.ASCII):
+            return "invalid", []
+        low, high = (int(value, 16) for value in bounds.split("-"))
+        if low >= high:
+            return "invalid", []
+        path = fields[5] if len(fields) == 6 else ""
+        mappings.append((low, high, int(offset, 16), permissions[2] == "x", path))
+    return "available", mappings
+
+def mapped_module(pc, status, mappings):
+    if status != "available":
+        return "unavailable", "unavailable", "unavailable"
+    matches = [entry for entry in mappings if entry[0] <= pc < entry[1]]
+    if not matches:
+        return "unavailable", "unavailable", "unmapped"
+    if len(matches) != 1:
+        return "unavailable", "unavailable", "ambiguous"
+    low, high, file_offset, executable, path = matches[0]
+    if not executable:
+        return "unavailable", "unavailable", "nonexec"
+    if not path or path.startswith("["):
+        return "unavailable", "unavailable", "anonymous_exec"
+    basename = os.path.basename(path)
+    module = safe_name(basename, r"[A-Za-z0-9_.+\-]+", 96)
+    offset = pc - low + file_offset
+    if not path.startswith("/") or module == "unavailable" or not 0 <= offset <= 0xffffffffffffffff:
+        return "unavailable", "unavailable", "unavailable"
+    return module, "0x%x" % offset, "verified_image"
+
 def on_stop(event):
     global pending, invalid_pid, first_stop
     if gdb.selected_inferior().pid != target_pid:
@@ -137,6 +192,8 @@ try:
             observed_fault = True
             emit("fault signal=%s" % pending)
             try:
+                map_status, mappings = mapping_snapshot()
+                emit("maps status=%s" % map_status)
                 frame = gdb.newest_frame()
                 for index in range(8):
                     if frame is None:
@@ -146,9 +203,8 @@ try:
                         emit("error reason=frame_unavailable")
                         break
                     function = safe_name(frame.name(), r"[A-Za-z0-9_:.$~+\-]+", 160)
-                    path = gdb.solib_name(pc)
-                    module = safe_name(os.path.basename(path) if isinstance(path, str) else None, r"[A-Za-z0-9_.+\-]+", 96)
-                    emit("frame index=%d pc=0x%x function=%s module=%s" % (index, pc, function, module))
+                    module, offset, mapping = mapped_module(pc, map_status, mappings)
+                    emit("frame index=%d pc=0x%x function=%s module=%s module_offset=%s mapping=%s" % (index, pc, function, module, offset, mapping))
                     frame = frame.older()
             except Exception:
                 emit("error reason=frame_unavailable")
@@ -242,12 +298,14 @@ if not re.fullmatch(r"[1-9][0-9]{0,19}", target, re.ASCII):
     sys.exit(2)
 prefix = "INK_FAULT pid=" + target + " "
 fixed = re.compile(r"(?:ready|fault signal=SIG(?:SEGV|ABRT|BUS|FPE|ILL)|exit kind=code value=(?:0|[1-9][0-9]{0,2})|exit kind=signal value=SIG(?:SEGV|ABRT|BUS|FPE|ILL)|exit kind=unknown value=unavailable|error reason=(?:pid_mismatch|frame_unavailable|interrupted|debugger_failure|unknown_stop)|observation=no_observed_fault|detach result=(?:complete|failed))", re.ASCII)
-frame = re.compile(r"frame index=([0-7]) pc=0x[0-9a-f]{1,16} function=[A-Za-z0-9_:.$~+\-]{1,160} module=[A-Za-z0-9_.+\-]{1,96}", re.ASCII)
+frame = re.compile(r"frame index=([0-7]) pc=0x[0-9a-f]{1,16} function=[A-Za-z0-9_:.$~+\-]{1,160} module=(?P<module>[A-Za-z0-9_.+\-]{1,96}) module_offset=(?P<offset>0x[0-9a-f]{1,16}|unavailable) mapping=(?P<mapping>verified_image|anonymous_exec|unmapped|nonexec|unavailable|ambiguous)", re.ASCII)
+map_record = re.compile(r"maps status=(available|pid_mismatch|unreadable|oversize|invalid)", re.ASCII)
 first_stop = re.compile(r"first_stop kind=(?:signal|breakpoint|stop|unavailable) signal=(?:unavailable|SIG(?:HUP|INT|QUIT|ILL|TRAP|ABRT|IOT|BUS|FPE|KILL|USR1|SEGV|USR2|PIPE|ALRM|TERM|STKFLT|CHLD|CLD|CONT|STOP|TSTP|TTIN|TTOU|URG|XCPU|XFSZ|VTALRM|PROF|WINCH|IO|POLL|PWR|SYS|UNUSED|3[2-9]|[45][0-9]|6[0-4]))", re.ASCII)
 records = []
 frames = 0
 fault = False
 stop_seen = False
+map_status = None
 with open(raw, "rb") as source:
     payload = source.read(1024 * 1024 + 1)
     if len(payload) > 1024 * 1024:
@@ -260,9 +318,20 @@ with open(raw, "rb") as source:
         fields = line[len(prefix):]
         match = frame.fullmatch(fields)
         if match:
-            if not fault or int(match[1]) != frames or frames >= 8:
+            if not fault or map_status is None or int(match[1]) != frames or frames >= 8:
+                sys.exit(2)
+            if match["mapping"] == "verified_image":
+                if map_status != "available" or match["module"] == "unavailable" or match["offset"] == "unavailable":
+                    sys.exit(2)
+            elif match["module"] != "unavailable" or match["offset"] != "unavailable":
+                sys.exit(2)
+            if map_status != "available" and match["mapping"] != "unavailable":
                 sys.exit(2)
             frames += 1
+        elif map_record.fullmatch(fields):
+            if not fault or map_status is not None or frames:
+                sys.exit(2)
+            map_status = map_record.fullmatch(fields)[1]
         elif first_stop.fullmatch(fields):
             if stop_seen or fault or (not fields.startswith("first_stop kind=signal ") and not fields.endswith("signal=unavailable")):
                 sys.exit(2)
