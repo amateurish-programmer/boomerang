@@ -69,6 +69,7 @@ fi
 "${gradle[@]}" connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true "-Pandroid.testInstrumentationRunnerArguments.notClass=$permission_class"
 test_status=$?
 copy_raw_results "$diagnostics/raw-test-results" raw-test-results-copy.txt
+capture_host host-emulator-crash.json node scripts/describe-emulator-crash.mjs
 capture_adb crash-log.txt logcat -b crash -d -v threadtime
 capture_adb runtime-log.txt logcat -b main -d -t 1000 -v threadtime
 capture_adb anr-events.txt logcat -b events -d -s am_anr

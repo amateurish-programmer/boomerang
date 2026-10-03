@@ -50,6 +50,8 @@ jobs:
         run: node --test scripts/test-ai.mjs
       - name: Test ink motion lifecycle
         run: node --test scripts/test-ink-motion.mjs
+      - name: Test bounded emulator crash metadata
+        run: node --test scripts/test-emulator-crash.mjs
       - name: Test OTA release boundaries
         run: node --test scripts/test-ota.mjs
       - name: Apply migrations and test database boundaries
@@ -132,7 +134,7 @@ jobs:
           target: google_apis
           arch: x86_64
           disk-size: 2048M
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim ${{ matrix.api == 35 && '-feature -Vulkan' || '' }}
+          emulator-options: -no-window -gpu ${{ matrix.api == 35 && 'swiftshader' || 'swiftshader_indirect' }} -no-snapshot -noaudio -no-boot-anim ${{ matrix.api == 35 && '-feature -Vulkan' || '' }}
           disable-animations: true
           script: bash scripts/test-device.sh
       - uses: actions/upload-artifact@v4
