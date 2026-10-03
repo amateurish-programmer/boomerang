@@ -138,4 +138,7 @@ jobs:
         if: always()
         with:
           name: device-api${{ matrix.api }}-reports-${{ github.run_number }}
-          path: android/app/build/reports/androidTests/
+          path: |
+            android/app/build/reports/androidTests/
+            android/app/build/outputs/androidTest-results/connected/
+            android/app/build/permission-reports/
