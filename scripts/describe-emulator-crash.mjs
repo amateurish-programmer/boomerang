@@ -81,33 +81,56 @@ export function collectCrashMetadata({ platform = process.platform, fs = fsDefau
   if (platform !== 'linux') return { status: 'unsupported_platform' };
   const dumps = [];
   let entries = 0, directories = 0, files = 0, limited = false, rejected = false;
-  const safeDirectory = location => {
-    const stat = fs.lstatSync(location);
-    return stat.isDirectory() && !stat.isSymbolicLink() && fs.realpathSync(location) === location;
+  const openDirectory = (location, anchoredPath) => {
+    const before = fs.lstatSync(anchoredPath);
+    if (!before.isDirectory() || before.isSymbolicLink() || fs.realpathSync(anchoredPath) !== location) return undefined;
+    let fd;
+    try {
+      fd = fs.openSync(anchoredPath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_DIRECTORY);
+      const stat = fs.fstatSync(fd);
+      if (!stat.isDirectory() || stat.dev !== before.dev || stat.ino !== before.ino ||
+          fs.realpathSync(`/proc/self/fd/${fd}`) !== location) {
+        fs.closeSync(fd); return undefined;
+      }
+      return fd;
+    } catch (error) {
+      if (fd !== undefined) fs.closeSync(fd);
+      throw error;
+    }
   };
-  const walk = (location, depth, inDatabase) => {
+  const walk = (location, directoryFd, depth, inDatabase) => {
     if (++directories > 128) { limited = true; return; }
-    if (!safeDirectory(location)) { rejected = true; return; }
-    const dir = fs.opendirSync(location);
+    // Enumeration and child opens use the validated handle, never a pathname
+    // that can be redirected after validation. Only the trusted proc fd link
+    // is followed; child components are opened with O_NOFOLLOW.
+    const handlePath = `/proc/self/fd/${directoryFd}`;
+    const dir = fs.opendirSync(handlePath);
     try {
       let entry;
       while ((entry = dir.readSync()) !== null) {
         if (++entries > 4096) { limited = true; break; }
         if (entry.name === '.' || entry.name === '..' || /[\\/]/.test(entry.name)) { rejected = true; continue; }
         const child = `${location}/${entry.name}`;
+        const anchoredChild = `${handlePath}/${entry.name}`;
         if (entry.isSymbolicLink()) { rejected = true; continue; }
         if (entry.isDirectory()) {
           if (!inDatabase && !/^emu-crash-[A-Za-z0-9_.-]+\.db$/.test(entry.name)) continue;
           if (depth >= 3) { limited = true; continue; }
-          walk(child, depth + 1, true);
+          let childFd;
+          try {
+            childFd = openDirectory(child, anchoredChild);
+            if (childFd === undefined) { rejected = true; continue; }
+            walk(child, childFd, depth + 1, true);
+          } catch { rejected = true; }
+          finally { if (childFd !== undefined) fs.closeSync(childFd); }
         } else if (inDatabase && entry.isFile() && entry.name.endsWith('.dmp')) {
           if (files >= 16) { limited = true; break; }
           files++;
           let fd;
           try {
-            const before = fs.lstatSync(child);
+            const before = fs.lstatSync(anchoredChild);
             if (!before.isFile() || before.isSymbolicLink()) { rejected = true; continue; }
-            fd = fs.openSync(child, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+            fd = fs.openSync(anchoredChild, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
             const stat = fs.fstatSync(fd);
             // Verify the open handle too, so directory replacement cannot redirect reads.
             if (fs.realpathSync(`/proc/self/fd/${fd}`) !== child || !stat.isFile() ||
@@ -128,11 +151,18 @@ export function collectCrashMetadata({ platform = process.platform, fs = fsDefau
       }
     } finally { dir.closeSync(); }
   };
+  let tmpFd, rootFd;
   try {
-    if (!safeDirectory('/tmp') || !safeDirectory(ROOT)) return { status: 'unsafe_root' };
-    walk(ROOT, 0, false);
+    tmpFd = openDirectory('/tmp', '/tmp');
+    if (tmpFd === undefined) return { status: 'unsafe_root' };
+    rootFd = openDirectory(ROOT, `/proc/self/fd/${tmpFd}/android-runner`);
+    if (rootFd === undefined) return { status: 'unsafe_root' };
+    walk(ROOT, rootFd, 0, false);
   } catch (error) {
     return { status: error.code === 'ENOENT' ? 'missing_dump' : 'collection_failed' };
+  } finally {
+    if (rootFd !== undefined) fs.closeSync(rootFd);
+    if (tmpFd !== undefined) fs.closeSync(tmpFd);
   }
   return { status: limited ? 'collection_limit' : rejected ? 'collection_rejected' : dumps.length ? 'collected' : 'missing_dump', dumps };
 }

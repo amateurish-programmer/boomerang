@@ -82,7 +82,11 @@ test('CLI rejects arbitrary paths without echoing them', () => {
 
 // In-memory filesystem only: tests never create a crash database or read a host dump.
 function syntheticFs(tree) {
-  const reads = [], handles = new Map();
+  const reads = [], enumerated = [], handles = new Map();
+  const resolveHandle = location => {
+    const match = /^\/proc\/self\/fd\/(\d+)(\/.*)?$/.exec(location);
+    return match ? handles.get(Number(match[1])).location + (match[2] ?? '') : location;
+  };
   const get = location => {
     const node = tree[location];
     if (!node) throw Object.assign(new Error(), { code: 'ENOENT' });
@@ -92,11 +96,16 @@ function syntheticFs(tree) {
     isDirectory: () => node.type === 'dir', isFile: () => node.type === 'file',
     isSymbolicLink: () => node.type === 'link' });
   const fs = {
-    constants: { O_RDONLY: 0, O_NOFOLLOW: 1, O_NONBLOCK: 2 },
-    lstatSync: location => stat(get(location)),
-    realpathSync: location => location.startsWith('/proc/self/fd/')
-      ? handles.get(Number(location.split('/').at(-1))).location : get(location).target ?? location,
+    constants: { O_RDONLY: 0, O_NOFOLLOW: 1, O_NONBLOCK: 2, O_DIRECTORY: 4 },
+    lstatSync: location => stat(get(resolveHandle(location))),
+    realpathSync: location => {
+      const resolved = resolveHandle(location);
+      return get(resolved).target ?? resolved;
+    },
     opendirSync: location => {
+      const descriptor = /^\/proc\/self\/fd\/(\d+)$/.exec(location);
+      location = descriptor ? handles.get(Number(descriptor[1])).location : get(location).target ?? location;
+      enumerated.push(location);
       const children = Object.entries(tree).filter(([key]) => key.startsWith(`${location}/`) &&
         !key.slice(location.length + 1).includes('/'));
       let index = 0;
@@ -105,8 +114,15 @@ function syntheticFs(tree) {
         return child ? { name: child[0].slice(location.length + 1), ...stat(child[1]) } : null;
       } };
     },
-    openSync: (location, flags) => { assert.equal(flags, 3); const fd = handles.size + 1;
-      handles.set(fd, { location, node: get(location) }); return fd; },
+    openSync: (location, flags) => {
+      assert.ok(flags === 3 || flags === 5);
+      location = resolveHandle(location);
+      const node = get(location);
+      if (node.type === 'link') throw Object.assign(new Error(), { code: 'ELOOP' });
+      if ((flags & 4) && node.type !== 'dir') throw Object.assign(new Error(), { code: 'ENOTDIR' });
+      const fd = handles.size + 1;
+      handles.set(fd, { location, node }); return fd;
+    },
     fstatSync: fd => stat(handles.get(fd).node),
     readSync: (fd, bytes, offset, size, position) => {
       const handle = handles.get(fd); reads.push(handle.location);
@@ -114,7 +130,7 @@ function syntheticFs(tree) {
     },
     closeSync() {},
   };
-  return { fs, reads };
+  return { fs, reads, enumerated };
 }
 const rootTree = () => ({ '/tmp': { type: 'dir' }, '/tmp/android-runner': { type: 'dir' },
   '/tmp/android-runner/emu-crash-test.db': { type: 'dir' } });
@@ -161,7 +177,35 @@ test('refuses an open handle redirected by directory replacement', () => {
   const tree = rootTree();
   tree['/tmp/android-runner/emu-crash-test.db/test.dmp'] = { type: 'file', bytes: fixture() };
   const fake = syntheticFs(tree), original = fake.fs.realpathSync;
-  fake.fs.realpathSync = location => location.startsWith('/proc/self/fd/') ? '/private/test.dmp' : original(location);
+  fake.fs.realpathSync = location => {
+    const resolved = original(location);
+    return location.startsWith('/proc/self/fd/') && resolved.endsWith('.dmp') ? '/private/test.dmp' : resolved;
+  };
   assert.equal(collectCrashMetadata({ platform: 'linux', fs: fake.fs }).status, 'collection_rejected');
   assert.equal(fake.reads.length, 0);
+});
+test('directory replacement after validation cannot enumerate or read outside the root', () => {
+  const targets = ['/tmp/android-runner', '/tmp/android-runner/emu-crash-test.db',
+    '/tmp/android-runner/emu-crash-test.db/pending'];
+  const cases = ['before open', 'before enumeration'].flatMap(timing => targets.map(target => ({ timing, target })));
+  for (const { timing, target } of cases) {
+    const tree = rootTree(); tree['/private'] = { type: 'dir' };
+    tree['/tmp/android-runner/emu-crash-test.db/pending'] = { type: 'dir' };
+    tree['/private/SECRET.dmp'] = { type: 'file', bytes: fixture() };
+    const fake = syntheticFs(tree), original = fake.fs.realpathSync;
+    let replaced = false;
+    fake.fs.realpathSync = location => {
+      const resolved = original(location);
+      const descriptor = /^\/proc\/self\/fd\/\d+$/.test(location);
+      if (resolved === target && !replaced && descriptor === (timing === 'before enumeration')) {
+        tree[target] = { type: 'link', target: '/private' }; replaced = true;
+      }
+      return resolved;
+    };
+    const result = collectCrashMetadata({ platform: 'linux', fs: fake.fs });
+    assert.equal(replaced, true);
+    assert.ok(!fake.enumerated.includes('/private'), 'must not enumerate the replacement symlink target');
+    assert.equal(fake.reads.length, 0);
+    assert.doesNotMatch(JSON.stringify(result), /private|SECRET/);
+  }
 });
