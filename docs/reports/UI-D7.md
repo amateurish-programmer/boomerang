@@ -142,3 +142,11 @@ Task9运行修复1签名b27471e仅改采集helper：首次unknown_stop增加固�
 下一补充仅在真实故障停止时内部读取受限进程映射，核对PC是否实际属于某映像、匿名执行区或未映射区，再输出严格模块basename/文件偏移/固定分类。gdb.solib_name=None不能自动推断主程序，原始映射、路径、内存或core不输出。正式验收仍未通过，手机暂缓，公开OTA保持。
 
 运行修复3签名3ba276e仅改采集helper，内部读取上限1MiB的实际进程映射；仅唯一包含PC的可执行文件映射可给严格模块basename/文件偏移，匿名/未映射/非执行/不可识别/歧义以固定分类记录。独立精确复审通过，无可行动问题，控制者语法/diff/真实SSH核验通过。实际归属待云端，不采集原始映射、路径或内存字节。另已下载并核对06007ca最新报告105单元0失败/忽略、Lint0错22既有警告、110Node0失败/跳过及隔离数据库行为断言通过。
+
+## 实际故障位于匿名可执行区
+
+[专项37101220493](https://github.com/amateurish-programmer/boomerang/actions/runs/37101220493)，精确69a76bc6fa5ba6eab28e009b32a85faefb08fbe0。contracts/Android通过，API35权限1项通过，主仅1项完成、下一空failure。目标3435真实SIGSEGV、mapsavailable，首帧0x55c54d33db8b为anonymous_exec，后7帧unmapped；模块/函数/文件偏移均不可识别，不推定主程序、JIT归属或栈损坏。工具0、stderrnone、validated、cleanup0，没有本轮终止事件标记。
+
+实际启动日志确认SwiftShader GLES3.0/4.0.0.1。基于新匿名执行区故障证据提出独立软件图形后端对照，仅API35改官方支持Mesa Lavapipe，其他参数/全部用例不变，两观察器关闭。此为检验图形路径假设，不宣称SwiftShader精确根因；若通过必须完整矩阵再验，若失败停止继续轮换后端。手机安装仍暂缓。
+
+Task10签名f399e76只替换API35 GPU选择swiftshader为lavapipe，26/33及35的Vulkan关闭条件不变。独立规范/质量评审通过，控制者精确diff/真实SSH核验通过。尚须确认实际后端和全部测试，不能据源码一行称已修复。
