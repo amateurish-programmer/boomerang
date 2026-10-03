@@ -37,6 +37,10 @@ val InkMotionRunningKey = SemanticsPropertyKey<Boolean>("InkMotionRunning")
 var SemanticsPropertyReceiver.inkMotionRunning by InkMotionRunningKey
 val InkArtworkKey = SemanticsPropertyKey<String>("InkArtwork")
 var SemanticsPropertyReceiver.inkArtwork by InkArtworkKey
+internal val InkFeedbackActiveKey = SemanticsPropertyKey<Boolean>("InkFeedbackActive")
+
+/** Optional frame evidence for isolated fixtures; production has no observer or frame semantics. */
+internal val LocalInkFrameObserver = staticCompositionLocalOf<((Long) -> Unit)?> { null }
 
 /** The framework limit also covers direct fixtures which do not have a ShellViewModel. */
 @Composable
@@ -77,6 +81,7 @@ internal fun InkLandscape(
     entrance: InkEntranceState, parallax: () -> Float, dateLabel: String, modifier: Modifier = Modifier,
 ) {
     val dark = LocalInkDarkTheme.current
+    val frameObserver by rememberUpdatedState(LocalInkFrameObserver.current)
     val resources = androidx.compose.ui.platform.LocalContext.current.resources
     val artwork = if (dark) R.drawable.ink_landscape_dark else R.drawable.ink_landscape_light
     // Exactly one theme bitmap is retained by this composed hero; never decode from a frame callback.
@@ -115,6 +120,7 @@ internal fun InkLandscape(
         if (entering) { entrance.sceneAlpha = 0f; entrance.brandAlpha = 0f; entrance.recordsAlpha = 0f }
         try {
             inkFrames { dt ->
+                frameObserver?.invoke(dt)
                 elapsed += dt
                 if (mode == InkMotionMode.FULL) timeMs += dt
                 if (entering) {
@@ -198,9 +204,13 @@ internal fun InkSaveFeedback(signal: Long?, consume: (Long) -> Unit, mode: InkMo
             latestConsume(signal)
         }
     }
-    LaunchedEffect(receipt, eligible, mode) {
-        if (receipt == null || !eligible || mode == InkMotionMode.OFF) {
-            progress = 1f; receipt = null; return@LaunchedEffect
+    // Capture the key: another effect may publish a receipt before this coroutine starts.
+    val activeReceipt = receipt
+    LaunchedEffect(activeReceipt, eligible, mode) {
+        if (activeReceipt == null || !eligible || mode == InkMotionMode.OFF) {
+            progress = 1f
+            if (receipt == activeReceipt) receipt = null
+            return@LaunchedEffect
         }
         var elapsed = 0L
         val duration = if (mode == InkMotionMode.FULL) 450f else 180f
@@ -209,9 +219,13 @@ internal fun InkSaveFeedback(signal: Long?, consume: (Long) -> Unit, mode: InkMo
             elapsed += dt
             progress = (elapsed / duration).coerceAtMost(1f)
             elapsed < duration
-        } } finally { progress = 1f; receipt = null }
+        } } finally { progress = 1f }
+        // Cancellation leaves a replacement receipt (or a mode restart) for the next effect.
+        if (receipt == activeReceipt) receipt = null
     }
-    Canvas(modifier) {
+    Canvas(modifier.testTag("ink_save_feedback").semantics {
+        this[InkFeedbackActiveKey] = eligible && progress < 1f && mode != InkMotionMode.OFF
+    }) {
         if (eligible && progress < 1f && mode != InkMotionMode.OFF) {
             val p = progress
             if (mode == InkMotionMode.REDUCED) {
