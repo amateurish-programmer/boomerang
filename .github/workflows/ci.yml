@@ -16,6 +16,10 @@ on:
         description: 'Diagnostic only: trace API35 host emulator exit signals (not acceptance)'
         type: boolean
         default: false
+      trace_host_fault:
+        description: 'Diagnostic only: collect API35 host fault frame metadata (not acceptance)'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -103,10 +107,11 @@ jobs:
     timeout-minutes: 30
     env:
       INK_TRACE_HOST_EXIT: ${{ inputs.trace_host_exit == true && matrix.api == 35 && '1' || '0' }}
+      INK_TRACE_HOST_FAULT: ${{ inputs.trace_host_fault == true && matrix.api == 35 && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
       - name: Ensure optional host exit tracer on ephemeral CI runner
-        if: inputs.trace_host_exit == true && matrix.api == 35
+        if: inputs.trace_host_exit == true && inputs.trace_host_fault != true && matrix.api == 35
         run: |
           test "$RUNNER_ENVIRONMENT" = github-hosted
           if ! command -v strace >/dev/null 2>&1; then
@@ -165,6 +170,15 @@ jobs:
             return 0
           }
           probe_output_access
+      - name: Ensure optional host fault observer on ephemeral CI runner
+        if: inputs.trace_host_fault == true && matrix.api == 35
+        run: |
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          if ! command -v gdb >/dev/null 2>&1; then
+            if ! sudo -n apt-get install --no-install-recommends -y gdb; then
+              echo 'Host fault observer unavailable: CI package installation failed; device tests continue.'
+            fi
+          fi
       - name: Free unused native toolchains on ephemeral runner
         run: |
           test "$RUNNER_ENVIRONMENT" = github-hosted

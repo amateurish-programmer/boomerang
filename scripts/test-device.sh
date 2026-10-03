@@ -120,6 +120,10 @@ trace_error_reason() {
 
 start_host_exit_trace() {
   [[ "${INK_TRACE_HOST_EXIT:-0}" == 1 && "$api" -eq 35 ]] || return 0
+  if [[ "${INK_TRACE_HOST_FAULT:-0}" == 1 ]]; then
+    trace_record 'tracer=disabled reason=fault-observer-precedence diagnostic-only=true'
+    return 0
+  fi
   local candidates comm code=0
   local -a pids=()
   if ! command -v strace >/dev/null 2>&1 || ! command -v sudo >/dev/null 2>&1; then
@@ -223,8 +227,37 @@ finish_host_exit_trace() {
   return 0
 }
 
+fault_helper_pid=
+start_host_fault_trace() {
+  [[ "${INK_TRACE_HOST_FAULT:-0}" == 1 && "$api" -eq 35 ]] || return 0
+  : > "$diagnostics/host-emulator-fault-status.txt"
+  : > "$diagnostics/host-emulator-fault.txt"
+  bash scripts/capture-emulator-fault.sh "$diagnostics" "$api" &
+  fault_helper_pid=$!
+  # The helper publishes only fixed readiness states, never raw debugger output.
+  local code=0
+  timeout --kill-after=1s 9s bash -c '
+    until grep -Eq "^readiness=(ready|unavailable|timeout)$" "$1" 2>/dev/null; do
+      sleep 0.1
+    done
+  ' ink-host-fault-ready "$diagnostics/host-emulator-fault-status.txt" || code=$?
+  if [[ "$code" -ne 0 ]]; then
+    printf 'readiness=timeout gate_seconds=10 diagnostic-only=true\n' >> "$diagnostics/host-emulator-fault-status.txt"
+  fi
+  return 0
+}
+
+finish_host_fault_trace() {
+  [[ -n "$fault_helper_pid" ]] || return 0
+  local code=0
+  wait "$fault_helper_pid" || code=$?
+  fault_helper_pid=
+  printf 'host-emulator-fault-observer exit=%s\n' "$code" >> "$diagnostics/capture-status.txt"
+  return 0
+}
+
 # Cleanup diagnostics never replace the original permission/main/asset exit.
-trap 'script_exit_status=$?; finish_host_exit_trace; exit "$script_exit_status"' EXIT
+trap 'script_exit_status=$?; finish_host_fault_trace; finish_host_exit_trace; exit "$script_exit_status"' EXIT
 
 capture_host host-memory-before.txt free -m
 capture_adb memory-before.txt shell dumpsys meminfo
@@ -255,9 +288,11 @@ if [[ "$api" -ge 33 ]]; then
   copy_raw_results android/app/build/permission-reports/raw-test-results permission-raw-test-results-copy.txt
 fi
 start_host_exit_trace
+start_host_fault_trace
 "${gradle[@]}" connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true "-Pandroid.testInstrumentationRunnerArguments.notClass=$permission_class"
 test_status=$?
 copy_raw_results "$diagnostics/raw-test-results" raw-test-results-copy.txt
+finish_host_fault_trace
 finish_host_exit_trace
 if [[ "$api" -eq 35 ]]; then
   capture_emulator_processes host-emulator-processes-after.txt
