@@ -197,7 +197,6 @@ jobs:
       - uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api }}
-          emulator-build: ${{ matrix.api == 35 && '15917651' || '' }}
           target: google_apis
           arch: x86_64
           disk-size: 2048M
