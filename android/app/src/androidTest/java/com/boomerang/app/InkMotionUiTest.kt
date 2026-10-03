@@ -228,17 +228,29 @@ class InkMotionUiTest {
         var signal by mutableStateOf<Long?>(null)
         var consumed = 0
         var entrances = 0
-        compose.setContent { CompositionLocalProvider(LocalInkFrameObserver provides { deltas += it }) {
+        var feedbackActive = false
+        compose.setContent { CompositionLocalProvider(
+            LocalInkFrameObserver provides { deltas += it },
+            LocalInkFeedbackObserver provides { feedbackActive = it },
+        ) {
             BoomerangTheme(false) { Home(signal = signal, consume = { consumed++; signal = null }, entered = { entrances++ }) }
         } }
         advance(1_000); assertRunning(true)
         compose.runOnIdle { signal = 11L }; advance(); assertFeedback(true)
-        compose.activityRule.scenario.moveToState(Lifecycle.State.STARTED)
-        advance(); assertRunning(false); assertFeedback(false)
-        val count = deltas.size
-        advance(60_000)
-        assertEquals("no decorative frames while paused", count, deltas.size)
-        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        var count = 0
+        try {
+            compose.activityRule.scenario.moveToState(Lifecycle.State.STARTED)
+            // Paused activities have no registered Compose semantics roots. Inspect retained callbacks.
+            compose.mainClock.advanceTimeBy(64)
+            instrumentation.waitForIdleSync()
+            instrumentation.runOnMainSync {
+                assertFalse("finite feedback clears during real lifecycle pause", feedbackActive)
+                count = deltas.size
+            }
+            compose.mainClock.advanceTimeBy(60_000)
+            instrumentation.waitForIdleSync()
+            instrumentation.runOnMainSync { assertEquals("no decorative frames while paused", count, deltas.size) }
+        } finally { compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED) }
         compose.waitUntil(5_000) { compose.activity.hasWindowFocus() }
         advance(); assertRunning(true); assertFeedback(false)
         assertEquals(0L, deltas.drop(count).first())
@@ -256,13 +268,13 @@ class InkMotionUiTest {
         } }
         advance(320)
         compose.runOnIdle { signal = 12L }; advance(); assertFeedback(true)
-        val dialog = Dialog(compose.activity)
+        var dialog: Dialog? = null
         try {
-            compose.runOnUiThread { dialog.show() }
+            compose.runOnUiThread { dialog = Dialog(compose.activity).apply { show() } }
             compose.waitUntil(5_000) { !compose.activity.hasWindowFocus() }
             advance(); assertFeedback(false)
             advance(30_000); assertFeedback(false)
-        } finally { compose.runOnUiThread { dialog.dismiss() } }
+        } finally { compose.runOnUiThread { dialog?.dismiss() } }
         compose.waitUntil(5_000) { compose.activity.hasWindowFocus() }
         advance(); assertFeedback(false)
         compose.runOnIdle { assertEquals(1, consumed); assertEquals(1, entrances) }
@@ -351,6 +363,7 @@ class InkMotionUiTest {
         advance(1_000)
         compose.runOnIdle { signal = 31L }; advance(); assertFeedback(true)
         compose.runOnIdle { signal = 32L }; advance(); assertFeedback(true)
+        advance(128); assertFeedback(true)
         compose.runOnIdle { mode = InkMotionMode.REDUCED }; advance(); assertFeedback(true)
         advance(240); assertFeedback(false)
         compose.runOnIdle { assertEquals(listOf(31L, 32L), consumed) }
@@ -426,13 +439,16 @@ class InkMotionUiTest {
         try {
             repository.setMotionMode(InkMotionMode.FULL)
             setSystemScale("0.5")
+            assertEquals("0.5", Settings.Global.getString(context.contentResolver, key))
             compose.waitUntil(5_000) { repository.systemScale.value == .5f }
             assertEquals(InkMotionMode.FULL, repository.motionMode.value)
             setSystemScale("0")
+            assertEquals("0", Settings.Global.getString(context.contentResolver, key))
             compose.waitUntil(5_000) { repository.systemScale.value == 0f }
             repository.close()
             AppearanceRepository(context).use { witness ->
                 setSystemScale("1")
+                assertEquals("1", Settings.Global.getString(context.contentResolver, key))
                 compose.waitUntil(5_000) { witness.systemScale.value == 1f }
                 instrumentation.waitForIdleSync()
                 assertEquals("closed observer must not receive changes", 0f, repository.systemScale.value)
@@ -448,8 +464,11 @@ class InkMotionUiTest {
     }
 
     private fun setSystemScale(value: String?) {
+        require(value == null || (value.matches(Regex("[0-9]+(?:\\.[0-9]+)?")) && value.toFloat().isFinite())) {
+            "emulator animation scale must be a finite unsigned decimal"
+        }
         val command = if (value == null) "settings delete global animator_duration_scale"
-            else "settings put global animator_duration_scale '${value.replace("'", "'\\''")}'"
+            else "settings put global animator_duration_scale $value"
         // Drain and close the shell descriptor so writes complete before observer assertions/restoration.
         instrumentation.uiAutomation.executeShellCommand(command).use { descriptor ->
             android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }

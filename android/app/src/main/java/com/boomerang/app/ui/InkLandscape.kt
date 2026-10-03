@@ -41,6 +41,7 @@ internal val InkFeedbackActiveKey = SemanticsPropertyKey<Boolean>("InkFeedbackAc
 
 /** Optional frame evidence for isolated fixtures; production has no observer or frame semantics. */
 internal val LocalInkFrameObserver = staticCompositionLocalOf<((Long) -> Unit)?> { null }
+internal val LocalInkFeedbackObserver = staticCompositionLocalOf<((Boolean) -> Unit)?> { null }
 
 /** The framework limit also covers direct fixtures which do not have a ShellViewModel. */
 @Composable
@@ -192,6 +193,7 @@ internal fun InkSaveFeedback(signal: Long?, consume: (Long) -> Unit, mode: InkMo
     var receipt by remember { mutableStateOf<Long?>(null) }
     var progress by remember { mutableFloatStateOf(1f) }
     var feedbackActive by remember { mutableStateOf(false) }
+    val feedbackObserver by rememberUpdatedState(LocalInkFeedbackObserver.current)
     val latestConsume by rememberUpdatedState(consume)
     val color = MaterialTheme.colorScheme.primary
     val paint = remember(color) { Paint().apply { this.color = color } }
@@ -207,10 +209,14 @@ internal fun InkSaveFeedback(signal: Long?, consume: (Long) -> Unit, mode: InkMo
     }
     // Capture the key: another effect may publish a receipt before this coroutine starts.
     val activeReceipt = receipt
-    LaunchedEffect(activeReceipt, eligible, mode) {
+    val owner = remember(activeReceipt, eligible, mode) { Any() }
+    val latestOwner by rememberUpdatedState(owner)
+    LaunchedEffect(owner) {
+        if (latestOwner !== owner || receipt != activeReceipt) return@LaunchedEffect
         if (activeReceipt == null || !eligible || mode == InkMotionMode.OFF) {
             progress = 1f
             feedbackActive = false
+            feedbackObserver?.invoke(false)
             if (receipt == activeReceipt) receipt = null
             return@LaunchedEffect
         }
@@ -218,13 +224,20 @@ internal fun InkSaveFeedback(signal: Long?, consume: (Long) -> Unit, mode: InkMo
         val duration = if (mode == InkMotionMode.FULL) 450f else 180f
         progress = 0f
         feedbackActive = true
+        feedbackObserver?.invoke(true)
         try { inkFrames { dt ->
             elapsed += dt
             progress = (elapsed / duration).coerceAtMost(1f)
             elapsed < duration
-        } } finally { progress = 1f; feedbackActive = false }
+        } } finally {
+            // A replacement/mode restart may already own the drawing state when cancellation ends.
+            if (latestOwner === owner) {
+                progress = 1f; feedbackActive = false
+                feedbackObserver?.invoke(false)
+            }
+        }
         // Cancellation leaves a replacement receipt (or a mode restart) for the next effect.
-        if (receipt == activeReceipt) receipt = null
+        if (latestOwner === owner && receipt == activeReceipt) receipt = null
     }
     Canvas(modifier.testTag("ink_save_feedback").semantics {
         this[InkFeedbackActiveKey] = eligible && feedbackActive && mode != InkMotionMode.OFF
