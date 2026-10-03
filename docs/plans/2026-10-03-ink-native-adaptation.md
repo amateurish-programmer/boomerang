@@ -148,3 +148,23 @@ References checked2026-10-03: https://developer.android.com/studio/run/emulator-
 - [ ] Fresh minimal worker, no local device/emulator/ADB/cloud/push/subagents. bash -n using existing GitBash, focused diff and git diff --check; no new implementation-mirroring tests/full Android rerun for read-only CI capture. Signed exact one-file commit actualidentity/perfiletable; report task-6-report.md command/results/scope/remaininglimits. Controller runs focused API35 diagnostic first; this is not full-matrix acceptance or permission to skip original tests.
 
 Preflight: shares capture_host and test_status order withTasks3/5. Fixed API35 condition consumes already validated api; existing API26/33 execution paths unchanged, new host captures non-overriding and beforeADBtimeouts. No app/sourceinterface changes or speculative renderer fix.
+
+### Task 7: Opt-in bounded API35 emulator exit-signal trace
+
+**Reason:** Focused37091621899 f705: main78 expected,3complete and lifecycle4 emptyfailure; permission1passed separately. PID3273 qemu-system-x86 beforetest RSS3169316KiB, aftertest absent. Filtered privileged kernel capture ran0 but no events; no Crashpad dump. Host actually exited, precise signal/normalexit stillunknown. No more guessed GPU/memory/app fixes.
+
+**Files:** .github/workflows/ci.yml; scripts/test-device.sh only. Native4b, parser9a, existingGPUflags/tests/matrix/guard/exit/rawcopy/capture bounds unchanged. No phone/localemulator/cloud/push/subagents by worker.
+
+- [ ] Add workflow_dispatch Boolean trace_host_exit defaultfalse. Devicejob exposes trusted INK_TRACE_HOST_EXIT=1 onlyif inputtrue andAPI35; else0. Only tracingAPI35 job ensures strace availability (existing binary else sudo apt-get install --no-install-recommends strace on disposable Ubuntu CI only); no local install, dependencies/actions/app version changes. Source/ordinary completeacceptance tracingoff. Runtimeobservereffect means tracing run remainsdiagnostic only.
+- [ ] After emulatorguard+validatedAPI and permissionbatch, beforeMAINtests, opt-in35 only obtains exactlyone positivePID with exactcomm qemu-system-x86/qemu-system-x86_64/emulator (noargs/env output), rechecks its comm beforeattach; missing/ambiguous/tool/privilege failure explicit, neverselect arbitraryPID. Trace that running emulator only, no launch/no signalinjection/no target kill/alteration.
+- [ ] Background GNUtimeout owns tracer processgroup, bounded300s plus5skill and signalINTdetach (never killtargetPID). sudo-n strace -f -q -e trace=none -e signal=SIGSEGV,SIGABRT,SIGBUS,SIGFPE,SIGILL,SIGKILL,SIGTERM,SIGQUIT -p PID. -q keeps exitstatus messages unlike-qq; no syscall/args/env/memory/core capture. Drain output and preserve only signal/exited/killed lines (numericPID prefixes allowed), last≤120lines. Record targetPID and independent tracer exit/missing/timeout statuses; no suppressed terminal events/mislabel timeout as targetexit. No fault injection/kill-on-exit.
+- [ ] Reap only own bounded background wrapper after main/rawcopy, BEFORE host/ADBdiagnostics, and on early script exit if started. Do not add directkill commands against emulator; cleanup/tracing mustnot change original main/permission/asset returnprecedence. Boundedwait mayadd time onlyfor opt-in diagnostic, explicitly reportthis. If target stillruns untiltracertimeout, report noobservedexit ratherthanfixed. Tracedpass cannotclaim formal fullmatrix or phoneperformance.
+- [ ] Minimal Bash/workflow change; existing GitBash bash-n, explicit/staged/full diffcheck and sourceexit/guard inspection. No mirrored-source tests or fullAndroidrerun for CI-only trace addition; controller exercisesactualLinux/focused35 originalalltests and thentracingoff completeacceptance. Signedexact2file actualidentity/table; task-7-report.md with commands/output/scope/limits. Controller handlescloud/push/review/runtime.
+
+Primary tracer docs checked2026-10-03: https://strace.io/ and https://raw.githubusercontent.com/strace/strace/master/doc/strace.1.in . Use trace=none signal filter, never -qq (would suppress exit messages). This is an exit-cause diagnostic; it is not a proved renderer fix.
+
+Preflight: Task6api and before/aftercaptures feedknownprocess boundary; Task7starts onlybeforemain afterpermission to minimizeobserver time. Task5hostmetadata capture remains; defaultoff preservesordinaryAPI26/33/35 paths. Sharedscript finalstatuses and capturestatusindependence are binding.
+
+Task7输出澄清：允许在上述必需strace选项外增加-o固定本任务临时文件，取得明确PID前缀。该文件在上传目录之外，过滤有限signal/exit行后删除，不上传原trace；缺少PID前缀的事件不可归属于目标。标准错误不输出任意字符串，工具/权限/附加失败仍以独立退出码/状态明确记载。此只改输出定位，不改变应用、测试或最终正常验收。
+
+Task7源码完成1bb739c，独立规范/质量审查通过；实际Linux退出诊断、随后关闭跟踪的完整矩阵与用户暂缓的手机验收仍待完成。

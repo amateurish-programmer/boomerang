@@ -83,3 +83,11 @@ Task5仅CI诊断：有界Node标准库MINIDUMP最小异常/模块读取（不上
 整分支3d4f8b2..5d99423补充审查已完成，没有新的Critical/Important/Minor；原四项运行相关修复与目录竞态保护仍有效。此为源码/CI集成审查通过，不能将API35或手机验收标通过。原生API26明暗及200%字号截图已核对，API33本轮完整原生截图另留存；私人候选未安装、真机帧时/内存/数据保留待验收，公开OTA仍原0.5.0。
 
 Task6签名提交4b84d7b仅为scripts/test-device.sh新增41行：已验证API35才记录最多4个仿真器/QEMU进程的PID/PPID/comm/state/RSS/VSZ，无参数或环境变量；主测试及原始结果拷贝后、ADB之前，通过既有20秒捕获器读取只读sudo -n dmesg，仅保留OOM/被杀/段错误/通用故障/qemu/emulator事件至多120行，独立记录权限失败或无事件。API26/33路径、应用/测试、GPU参数、最终状态优先级不变。独立规范/质量审查通过，控制者bash语法/diff及真实签名核验通过；下一轮仅API35诊断不称完整矩阵验收，尚无退出原因结论。
+
+## API35宿主诊断结果与退出跟踪
+
+[专项37091621899](https://github.com/amateurish-programmer/boomerang/actions/runs/37091621899)源f705e4623e23bbd989bbea64d452e1ad22890c37，contracts/Android成功，API35权限1项独立通过。主批次预期78项，XML显示前三项真实完成、生命周期第4项空失败；不能把4个XML槽都记完成。测试前qemu-system-x86 PID3273、PPID1、stateSl、RSS3169316KiB；原始测试返回后没有匹配进程，确认宿主QEMU退出。过滤的sudo -n内核采集exit0，结果无匹配事件；最小Crashpad采集仍missing_dump。两种采集均真实执行但没有退出原因，不据此确定OOM、驱动模块或应用异常。部分生命周期日志仍到EmptyFloatingActivity及PAUSED；原始UTP与状态各自保留。
+
+Task7为默认关闭的专项退出诊断：只在显式输入和API35时，对项目单个模拟器进程附加有界signal/exit-only strace；不采集syscall、参数、环境或内存，不注入信号或杀目标。正常完整验收关闭此追踪；追踪可能改变时序，专项通过不能替代正常矩阵或真机帧时。仅一次性CI宿主可按需要安装诊断工具，不在本地电脑安装。实施签名提交1bb739c，独立规范/质量评审无Critical/Important/Minor，控制者语法/diff/实际SSH签名核验通过；实际Linux附加、脱离及退出证据仍待执行。输出临时文件在上传目录外，过滤最多120行后删除；仅目标PID的终止行可确定目标退出，跟踪器退出码单独记录。
+
+本轮已另行只读刷新公开latest.json：仍0.5.0/code8、摘要939f5819c7040bb57fe67fdfdccb696e85921f9c77fef18b8e3a9de1536ffcae；私有候选b54e1c未进入公开清单。该GET是清单证据，不冒充认证桶对象数量核对。百炼仍暂缓、生产Cron关闭、未合入main。
