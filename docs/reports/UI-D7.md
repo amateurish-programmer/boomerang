@@ -73,3 +73,13 @@ CI对照提交 `b34aae75f9b6bb2e7d34ab58a62541d95d84e173`仅增加一个启动�
 自动审批首次拒绝打开手机候选下载页，仅返回blocked by policy；用户明确授权安装后第二次相同行为仍被拒绝，命令均未执行，未设ADB反向端口、未导航、未安装。已向用户说明原因并提供手动USB文件传输及系统覆盖安装步骤；用户选择暂时无法手动安装，先继续云端验证。手机候选/数据保留/性能仍未验收，不能替用户确认系统身份，也不通过其他工具绕过拒绝。
 
 Task5仅CI诊断：有界Node标准库MINIDUMP最小异常/模块读取（不上传原dump或任意内存、字符串、路径），API35尝试当前支持的swiftshader，保留Vulkan关闭及其他API设置。初版77ab510的15项测试通过，独立审查发现目录校验后打开的替换竞态；修复9a4b911将遍历绑定验证句柄，先RED复现后16项GREEN，由控制者再次实跑16项通过。两提交SSH签名已核验，精确复审确认已解决、无新重要问题；实际Linux采集、整分支补充审查与完整矩阵仍待结果。该实验不宣称已修复模拟器或识别根因。
+
+## 第四轮完整矩阵与补充源码审查
+
+[矩阵37090395453](https://github.com/amateurish-programmer/boomerang/actions/runs/37090395453)精确5d994234a996aab419423a743e74f0b3b2beadbb（应用及测试4b29bc4，CI最小元数据9a4b911）。contracts及Android成功；API26主80项、API33主78项和权限独立1项，全为0失败/错误/跳过，合159次完整设备执行；两版本各17项动效专项通过。原系统面板失败此次未复现，首次/中间失败记录保留。API35权限1项先通过，主批次预期78项，只收到1项完整结果：迁移用例通过，actualValidationFailureAndEditorCancellationProduceNoSuccessReceipt是无错误栈的空失败槽；不能把XML中空failure元素按布尔值当作完成或通过。
+
+启动日志证明API35实际选择swiftshader并关闭Vulkan，但模拟器仍消失，后采集ADB超时/设备不存在。新增Node采集在Linux执行exit0，结果missing_dump，表示诊断未找到转储，不证明没有崩溃。宿主可用内存before11884MiB/after14223MiB，不给出OOM因果证据；原未提权dmesg被Operation not permitted拒绝。保留原始UTP、捕获状态及日志。下一Task6只增加API35宿主进程元数据与临时CI宿主的只读内核事件采集，仍有界/不覆盖测试结果，先调查退出再改运行设置或应用。
+
+整分支3d4f8b2..5d99423补充审查已完成，没有新的Critical/Important/Minor；原四项运行相关修复与目录竞态保护仍有效。此为源码/CI集成审查通过，不能将API35或手机验收标通过。原生API26明暗及200%字号截图已核对，API33本轮完整原生截图另留存；私人候选未安装、真机帧时/内存/数据保留待验收，公开OTA仍原0.5.0。
+
+Task6签名提交4b84d7b仅为scripts/test-device.sh新增41行：已验证API35才记录最多4个仿真器/QEMU进程的PID/PPID/comm/state/RSS/VSZ，无参数或环境变量；主测试及原始结果拷贝后、ADB之前，通过既有20秒捕获器读取只读sudo -n dmesg，仅保留OOM/被杀/段错误/通用故障/qemu/emulator事件至多120行，独立记录权限失败或无事件。API26/33路径、应用/测试、GPU参数、最终状态优先级不变。独立规范/质量审查通过，控制者bash语法/diff及真实签名核验通过；下一轮仅API35诊断不称完整矩阵验收，尚无退出原因结论。
