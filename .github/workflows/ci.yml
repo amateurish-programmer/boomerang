@@ -132,6 +132,7 @@ jobs:
           target: google_apis
           arch: x86_64
           disk-size: 2048M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim ${{ matrix.api == 35 && '-feature -Vulkan' || '' }}
           disable-animations: true
           script: bash scripts/test-device.sh
       - uses: actions/upload-artifact@v4
