@@ -134,3 +134,11 @@ Task9运行修复1签名b27471e仅改采集helper：首次unknown_stop增加固�
 下一修复仅将已测SIGUSR1在调试器中设为nostop/noprint/pass，保留信号正常透传，让观察器继续等故障；其他未知信号仍安全分类后脱离，不预设SIGUSR2。GDB官方Signals说明SIGUSR1默认stop/print/pass，设置nostop/pass改变观察暂停而不抑制目标信号；仍是有时序影响的默认关闭诊断，不是正常设备验收或宿主故障修复。
 
 运行修复2签名38e8654只新增一行静态SIGUSR1 nostop/noprint/pass。独立精确复审通过，控制者Bash/diff/真实SSH核验通过；其他未知事件仍分类脱离、五类故障信号采集与原信号透传不变。下一Linux实测才确认是否继续到故障模块。
+
+## 故障帧已捕获，模块尚不可识别
+
+[专项37100081368](https://github.com/amateurish-programmer/boomerang/actions/runs/37100081368)，精确06007ca2af45deb6fefdaa8019b904745577abf2。contracts/Android通过，API35权限1项通过、主78项仅迁移1项完成，下项空failure。SIGUSR1透传后，目标3172真实捕获SIGSEGV和8帧数字PC；全部函数/模块unavailable，首帧0x562763932b8b，后续地址亦不能凭外形推定栈损坏或根因。observer0、stderrnone、validated、cleanup0；没有目标终止事件标记，不能据工具0断言本轮终止信号，宿主后检查仍缺失。
+
+下一补充仅在真实故障停止时内部读取受限进程映射，核对PC是否实际属于某映像、匿名执行区或未映射区，再输出严格模块basename/文件偏移/固定分类。gdb.solib_name=None不能自动推断主程序，原始映射、路径、内存或core不输出。正式验收仍未通过，手机暂缓，公开OTA保持。
+
+运行修复3签名3ba276e仅改采集helper，内部读取上限1MiB的实际进程映射；仅唯一包含PC的可执行文件映射可给严格模块basename/文件偏移，匿名/未映射/非执行/不可识别/歧义以固定分类记录。独立精确复审通过，无可行动问题，控制者语法/diff/真实SSH核验通过。实际归属待云端，不采集原始映射、路径或内存字节。另已下载并核对06007ca最新报告105单元0失败/忽略、Lint0错22既有警告、110Node0失败/跳过及隔离数据库行为断言通过。
