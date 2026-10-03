@@ -150,3 +150,23 @@ Task9运行修复1签名b27471e仅改采集helper：首次unknown_stop增加固�
 实际启动日志确认SwiftShader GLES3.0/4.0.0.1。基于新匿名执行区故障证据提出独立软件图形后端对照，仅API35改官方支持Mesa Lavapipe，其他参数/全部用例不变，两观察器关闭。此为检验图形路径假设，不宣称SwiftShader精确根因；若通过必须完整矩阵再验，若失败停止继续轮换后端。手机安装仍暂缓。
 
 Task10签名f399e76只替换API35 GPU选择swiftshader为lavapipe，26/33及35的Vulkan关闭条件不变。独立规范/质量评审通过，控制者精确diff/真实SSH核验通过。尚须确认实际后端和全部测试，不能据源码一行称已修复。
+
+## 关闭观察器的API35全部测试首次通过
+
+[正常专项37102164106](https://github.com/amateurish-programmer/boomerang/actions/runs/37102164106)，精确a903c04bd9f64d161a0bac3a5d974b3a73837170，两观察器环境0，contracts/Android/device35全部成功。原始主XML78项、权限XML1项，均0失败/错误/跳过，共79次真实执行，不重复计复制XML；17项新动效测试全部通过，acceptance截图已取得，宿主QEMU3333测试后仍存在。
+
+重要实际路径区别：命令请求-gpu lavapipe，启动vulkan_mode_selected=lavapipe，但gles_mode_selected=swangle；实际图形适配器ANGLE+Vulkan SwiftShader Device(Subzero)/driver5.0，GLES为ANGLE2.1/ES3.1。因此不能声称Mesa GLES或客体Vulkan实测成功；仅该配置切到了不同于原SwiftShader4的GLES路径并通过原全部用例，是CI兼容性方案，不是旧驱动具体缺陷证明。为保持验证对象一致，先保留这次成功的精确参数，不在完整矩阵前再改字面量。
+
+最高能力模型本轮整分支3d..a903源码审查通过，无新可行动问题；再次独立核对预期105JVM/110Node/完整矩阵238次(80+79+79)，原测试断言未削弱。控制者已目视API35合成原生首页明暗/OFF及200%短窗截图，实际原画与CTA呈现；不替代真实MainActivity/手机性能验收。已自动开始同源关闭观察器[完整矩阵37102712959](https://github.com/amateurish-programmer/boomerang/actions/runs/37102712959)，尚待结果，手机仍暂缓、公开OTA未发布候选。
+
+## 完整矩阵：API26/35成功、API33两项失败
+
+[37102712959](https://github.com/amateurish-programmer/boomerang/actions/runs/37102712959)同源a903、两观察器关闭，contracts/Android/API26/API35成功，API33失败。33原始failure为OFF must remain static across clock advancement及Downloads导出awaitApplication。实际失败PNG/XML仍显示根抽屉打开、Downloads选中、SAVE被抽屉遮挡；现有chooseDownloads只等genericidle。OFF用例仅主时钟64ms+waitidle后取PixelCopy，没有帧提交同步及失败前后图；源OFF绘制/时钟门禁未见确认缺陷，不能据该断言直接称产品OFF仍播放。下一Task11只修测试同步条件，增加真实提交等待及失败图/帧计数证据，严格像素相等和全部导入断言保留，不动产品/GPU参数。最高能力整分支a903源码审查通过不替代这次失败。
+
+控制者已下载完整147三版本原始报告：26主80/0失败；33主78/2失败+权限1/0失败；35主78/0失败+权限1/0失败。共238项真实完成，236通过2失败、无跳过或空槽，不重复计复制XML。26/35各17动效全部通过，33动效17中OFF像素1项失败；35的正常完整通过再次复现，不能因此把整矩阵判绿。
+
+## Task11测试同步源码验证完成
+
+签名提交32ef5825182c14a44978b5c5034b49b4785bba56仅修改InkMotionUiTest及ExtrasSystemTest：Downloads在实际roots_list内点击可点击祖先并等待抽屉关闭，再核对前台和文件名/保存控件；OFF在有效模式与停止语义已确认后，API29及以上硬件绘制使用有界5秒帧提交等待，再保留原逐像素相等检查，并额外验证2000ms内零装饰帧。仅在实际前后图已捕获且不一致时写位图及数字差异；API26/软件保留原静止判断。无像素容差、区域忽略、跳过、改产品或GPU参数，全部导入/历史/队列断言保留。
+
+独立任务规范与质量审查通过，无问题；控制者核验精确两文件、SSH签名及diff检查。规定四任务构建首次成功但105单元报告部分复用，因此同命令加--rerun-tasks重新实际执行全部79任务，3分51秒成功。新生成14套XML共105单元，0失败/错误/跳过；Lint0错误、22既有警告，Debug与AndroidTest APK均成功。首次PowerShell未引用-P参数的启动失败另留日志，不计测试成功。该证据仅为源码/编译通过，真实修复效果等待下一关闭观察器的完整26/33/35矩阵，保留37102712959两项失败。应用生产代码仍4b29bc4，私有候选未安装，手机/帧时/内存/原数据保留另验。
