@@ -12,6 +12,10 @@ on:
           - '[26]'
           - '[35]'
         default: '[26,33,35]'
+      trace_host_exit:
+        description: 'Diagnostic only: trace API35 host emulator exit signals (not acceptance)'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -97,8 +101,19 @@ jobs:
         api: ${{ fromJSON(inputs.device_apis || '[26,33,35]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      INK_TRACE_HOST_EXIT: ${{ inputs.trace_host_exit == true && matrix.api == 35 && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Ensure optional host exit tracer on ephemeral CI runner
+        if: inputs.trace_host_exit == true && matrix.api == 35
+        run: |
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          if ! command -v strace >/dev/null 2>&1; then
+            if ! sudo -n apt-get install --no-install-recommends -y strace; then
+              echo 'Host exit tracer unavailable: CI package installation failed; device tests continue.'
+            fi
+          fi
       - name: Free unused native toolchains on ephemeral runner
         run: |
           test "$RUNNER_ENVIRONMENT" = github-hosted

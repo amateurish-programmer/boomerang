@@ -60,6 +60,114 @@ copy_raw_results() {
   fi
 }
 
+# Only the trusted workflow opt-in enables this diagnostic. It changes runtime
+# timing and may add up to the remaining 300s + 5s trace bound when reaping.
+trace_wrapper_pid=
+trace_target_pid=unavailable
+trace_raw=
+trace_status_file="$diagnostics/host-emulator-exit-trace-status.txt"
+trace_record() {
+  printf 'target_pid=%s %s\n' "$trace_target_pid" "$*" >> "$trace_status_file"
+}
+
+start_host_exit_trace() {
+  [[ "${INK_TRACE_HOST_EXIT:-0}" == 1 && "$api" -eq 35 ]] || return 0
+  local candidates comm code=0
+  local -a pids=()
+  if ! command -v strace >/dev/null 2>&1 || ! command -v sudo >/dev/null 2>&1; then
+    trace_record 'tracer=unavailable reason=strace-or-sudo-missing'
+    return 0
+  fi
+  candidates=$(timeout --kill-after=5s 20s ps -eo pid=,comm:32= 2>/dev/null | awk '
+    $1 ~ /^[0-9]+$/ && $1 > 0 &&
+    ($2 == "qemu-system-x86" || $2 == "qemu-system-x86_64" || $2 == "emulator") { print $1 }
+  ') || code=$?
+  if [[ "$code" -ne 0 ]]; then
+    trace_record "tracer=unavailable reason=pid-read-failed exit=$code"
+    return 0
+  fi
+  if [[ -z "$candidates" ]]; then
+    trace_record 'tracer=unavailable reason=emulator-pid-missing'
+    return 0
+  fi
+  mapfile -t pids <<< "$candidates"
+  if [[ "${#pids[@]}" -ne 1 ]]; then
+    trace_record "tracer=unavailable reason=ambiguous-emulator-pids count=${#pids[@]}"
+    return 0
+  fi
+  trace_target_pid=${pids[0]}
+  trace_raw=$(mktemp /tmp/ink-host-exit-trace.XXXXXX) || {
+    trace_record 'tracer=unavailable reason=temporary-output-failed'
+    return 0
+  }
+  # Recheck the selected PID immediately before attaching; never inspect argv/env.
+  comm=$(timeout --kill-after=5s 20s ps -p "$trace_target_pid" -o comm:32= 2>/dev/null) || code=$?
+  comm=${comm//[[:space:]]/}
+  if [[ "$code" -ne 0 || ! "$comm" =~ ^(qemu-system-x86|qemu-system-x86_64|emulator)$ ]]; then
+    trace_record "tracer=unavailable reason=emulator-pid-recheck-failed exit=$code"
+    rm -f -- "$trace_raw"
+    trace_raw=
+    return 0
+  fi
+  # GNU timeout creates its own process group (no --foreground). The already
+  # running emulator remains outside it. INT detaches strace; no target kill.
+  # -f plus -o supplies PID prefixes; the raw file is outside uploaded artifacts.
+  timeout --signal=INT --kill-after=5s 300s sudo -n strace -f -q -e trace=none \
+    -e signal=SIGSEGV,SIGABRT,SIGBUS,SIGFPE,SIGILL,SIGKILL,SIGTERM,SIGQUIT \
+    -p "$trace_target_pid" -o "$trace_raw" >/dev/null 2>&1 &
+  trace_wrapper_pid=$!
+  trace_record 'tracer=started diagnostic-only=true bound_seconds=300 kill_after_seconds=5'
+  return 0
+}
+
+finish_host_exit_trace() {
+  [[ -n "$trace_wrapper_pid" ]] || return 0
+  local code=0 filter_code=0
+  # Reap only our bounded wrapper, including when EXIT cleanup runs early.
+  wait "$trace_wrapper_pid" || code=$?
+  trace_wrapper_pid=
+  trace_record "tracer_exit=$code"
+  printf 'host-emulator-exit-trace exit=%s target_pid=%s\n' "$code" "$trace_target_pid" >> "$diagnostics/capture-status.txt"
+  case "$code" in
+    0) trace_record 'tracer=finished' ;;
+    124) trace_record 'tracer=timeout target_exit_not_inferred=true' ;;
+    137) trace_record 'tracer=timeout-or-wrapper-killed target_exit_not_inferred=true' ;;
+    *) trace_record 'tracer=unavailable-or-failed reason=attach-privilege-tool-or-tracing-failure' ;;
+  esac
+  if [[ -f "$trace_raw" ]]; then
+    # -f includes threads/children. Only a terminal event for the selected PID
+    # establishes a target exit; child/thread exits do not establish that.
+    awk -v target="$trace_target_pid" -v status_file="$trace_status_file" '
+      {
+        line = $0; event_pid = "unattributed"
+        if (line ~ /^\[pid[[:space:]]+[0-9]+\][[:space:]]+/) {
+          event_pid = line; sub(/^\[pid[[:space:]]+/, "", event_pid); sub(/\].*$/, "", event_pid)
+          sub(/^\[pid[[:space:]]+[0-9]+\][[:space:]]+/, "", line)
+        } else if (line ~ /^[0-9]+[[:space:]]+/) {
+          event_pid = line; sub(/[[:space:]].*$/, "", event_pid)
+          sub(/^[0-9]+[[:space:]]+/, "", line)
+        }
+        terminal = line ~ /^\+\+\+ (exited with [0-9]+|killed by SIG[A-Z0-9]+( \(core dumped\))?) \+\+\+$/
+        if (terminal || line ~ /^--- SIG(SEGV|ABRT|BUS|FPE|ILL|KILL|TERM|QUIT)[[:space:]].* ---$/) print $0
+        if (terminal && event_pid == target) observed = 1
+        if (terminal && event_pid == "unattributed") unattributed = 1
+      }
+      END {
+        printf "target_pid=%s target_exit=%s unattributed_terminal=%s\n", target, (observed ? "observed" : "no-observed-exit"), (unattributed ? "present" : "absent") >> status_file
+      }
+    ' "$trace_raw" | tail -n 120 > "$diagnostics/host-emulator-exit-trace.txt" || filter_code=$?
+    trace_record "filter_exit=$filter_code"
+    rm -f -- "$trace_raw"
+    trace_raw=
+  else
+    trace_record 'trace_output=missing target_exit=no-observed-exit'
+  fi
+  return 0
+}
+
+# Cleanup diagnostics never replace the original permission/main/asset exit.
+trap 'script_exit_status=$?; finish_host_exit_trace; exit "$script_exit_status"' EXIT
+
 capture_host host-memory-before.txt free -m
 capture_adb memory-before.txt shell dumpsys meminfo
 capture_adb disk-before.txt shell df -h
@@ -88,9 +196,11 @@ if [[ "$api" -ge 33 ]]; then
   capture_host permission-reports-copy.txt cp -R android/app/build/reports/androidTests/. android/app/build/permission-reports/
   copy_raw_results android/app/build/permission-reports/raw-test-results permission-raw-test-results-copy.txt
 fi
+start_host_exit_trace
 "${gradle[@]}" connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true "-Pandroid.testInstrumentationRunnerArguments.notClass=$permission_class"
 test_status=$?
 copy_raw_results "$diagnostics/raw-test-results" raw-test-results-copy.txt
+finish_host_exit_trace
 if [[ "$api" -eq 35 ]]; then
   capture_emulator_processes host-emulator-processes-after.txt
   # Read-only kernel evidence on the ephemeral GitHub Actions host, before ADB.
