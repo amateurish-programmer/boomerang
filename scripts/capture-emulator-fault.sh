@@ -70,6 +70,7 @@ import re
 
 faults = {"SIGSEGV", "SIGABRT", "SIGBUS", "SIGFPE", "SIGILL"}
 pending = None
+first_stop = None
 exited = False
 observed_fault = False
 invalid_pid = False
@@ -82,11 +83,25 @@ def emit(fields):
 def safe_name(value, pattern, limit):
     return value if isinstance(value, str) and 0 < len(value) <= limit and re.fullmatch(pattern, value, flags=re.ASCII) else "unavailable"
 
+def stop_signal_name(value):
+    # Fixed Linux names/aliases and GDB numeric real-time spellings SIG32..SIG64.
+    pattern = r"SIG(?:HUP|INT|QUIT|ILL|TRAP|ABRT|IOT|BUS|FPE|KILL|USR1|SEGV|USR2|PIPE|ALRM|TERM|STKFLT|CHLD|CLD|CONT|STOP|TSTP|TTIN|TTOU|URG|XCPU|XFSZ|VTALRM|PROF|WINCH|IO|POLL|PWR|SYS|UNUSED|3[2-9]|[45][0-9]|6[0-4])"
+    return safe_name(value, pattern, 12)
+
 def on_stop(event):
-    global pending, invalid_pid
+    global pending, invalid_pid, first_stop
     if gdb.selected_inferior().pid != target_pid:
         invalid_pid = True
-    pending = event.stop_signal if isinstance(event, gdb.SignalEvent) else None
+        return
+    if isinstance(event, gdb.SignalEvent):
+        pending = event.stop_signal
+        kind, signal = "signal", stop_signal_name(pending)
+    else:
+        pending = None
+        kind = "breakpoint" if isinstance(event, gdb.BreakpointEvent) else "stop" if isinstance(event, gdb.StopEvent) else "unavailable"
+        signal = "unavailable"
+    if first_stop is None:
+        first_stop = (kind, signal)
 
 def on_exit(event):
     global exited
@@ -144,6 +159,8 @@ try:
         if not observed_fault:
             emit("observation=no_observed_fault")
         if not exited and not observed_fault and not invalid_pid:
+            kind, signal = first_stop if first_stop is not None else ("unavailable", "unavailable")
+            emit("first_stop kind=%s signal=%s" % (kind, signal))
             emit("error reason=unknown_stop")
 except KeyboardInterrupt:
     emit("error reason=interrupted")
@@ -225,9 +242,11 @@ if not re.fullmatch(r"[1-9][0-9]{0,19}", target, re.ASCII):
 prefix = "INK_FAULT pid=" + target + " "
 fixed = re.compile(r"(?:ready|fault signal=SIG(?:SEGV|ABRT|BUS|FPE|ILL)|exit kind=code value=(?:0|[1-9][0-9]{0,2})|exit kind=signal value=SIG(?:SEGV|ABRT|BUS|FPE|ILL)|exit kind=unknown value=unavailable|error reason=(?:pid_mismatch|frame_unavailable|interrupted|debugger_failure|unknown_stop)|observation=no_observed_fault|detach result=(?:complete|failed))", re.ASCII)
 frame = re.compile(r"frame index=([0-7]) pc=0x[0-9a-f]{1,16} function=[A-Za-z0-9_:.$~+\-]{1,160} module=[A-Za-z0-9_.+\-]{1,96}", re.ASCII)
+first_stop = re.compile(r"first_stop kind=(?:signal|breakpoint|stop|unavailable) signal=(?:unavailable|SIG(?:HUP|INT|QUIT|ILL|TRAP|ABRT|IOT|BUS|FPE|KILL|USR1|SEGV|USR2|PIPE|ALRM|TERM|STKFLT|CHLD|CLD|CONT|STOP|TSTP|TTIN|TTOU|URG|XCPU|XFSZ|VTALRM|PROF|WINCH|IO|POLL|PWR|SYS|UNUSED|3[2-9]|[45][0-9]|6[0-4]))", re.ASCII)
 records = []
 frames = 0
 fault = False
+stop_seen = False
 with open(raw, "rb") as source:
     payload = source.read(1024 * 1024 + 1)
     if len(payload) > 1024 * 1024:
@@ -243,12 +262,16 @@ with open(raw, "rb") as source:
             if not fault or int(match[1]) != frames or frames >= 8:
                 sys.exit(2)
             frames += 1
+        elif first_stop.fullmatch(fields):
+            if stop_seen or fault or (not fields.startswith("first_stop kind=signal ") and not fields.endswith("signal=unavailable")):
+                sys.exit(2)
+            stop_seen = True
         elif not fixed.fullmatch(fields):
             sys.exit(2)
         if fields.startswith("exit kind=code") and int(fields.rsplit("=", 1)[1]) > 255:
             sys.exit(2)
         if fields.startswith("fault "):
-            if fault:
+            if fault or stop_seen:
                 sys.exit(2)
             fault = True
         records.append("target_pid=" + target + " " + fields)
