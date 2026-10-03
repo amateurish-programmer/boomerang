@@ -64,10 +64,58 @@ copy_raw_results() {
 # timing and may add up to the remaining 300s + 5s trace bound when reaping.
 trace_wrapper_pid=
 trace_target_pid=unavailable
+trace_dir=
 trace_raw=
+trace_stderr=
 trace_status_file="$diagnostics/host-emulator-exit-trace-status.txt"
 trace_record() {
   printf 'target_pid=%s %s\n' "$trace_target_pid" "$*" >> "$trace_status_file"
+}
+
+cleanup_host_exit_files() {
+  local code=0
+  if [[ -n "$trace_dir" ]]; then
+    rm -f -- "$trace_raw" "$trace_stderr" 2>/dev/null || code=$?
+    rmdir -- "$trace_dir" 2>/dev/null || code=$?
+    trace_record "cleanup_exit=$code"
+  fi
+  trace_dir=
+  trace_raw=
+  trace_stderr=
+  return 0
+}
+
+trace_error_reason() {
+  local code="$1" reason
+  if [[ ! -f "$trace_stderr" ]]; then
+    printf 'stderr_unavailable\n'
+    return 0
+  fi
+  # Raw stderr stays private. Only fixed enums escape this classifier.
+  reason=$(awk -v exit_code="$code" '
+    {
+      line = tolower($0); seen = 1
+      if ((line ~ /^sudo:/ && line ~ /password|not allowed|not permitted|terminal|command not found|unable|permission denied/) ||
+          line ~ /^timeout:.*sudo.*(no such file|failed to run)/) sudo_error = 1
+      denied = line ~ /permission denied|operation not permitted/
+      attach = line ~ /ptrace|attach/
+      if (denied && !attach && line ~ /fopen|open|output/) output_error = 1
+      if (denied && attach) ptrace_error = 1
+      if (line ~ /no such process/) process_error = 1
+      if (line ~ /(invalid|unrecognized|unknown|illegal) option/) option_error = 1
+    }
+    END {
+      reason = "none"
+      if (sudo_error) reason = "sudo_unavailable"
+      else if (output_error) reason = "output_permission_denied"
+      else if (ptrace_error) reason = "ptrace_permission_denied"
+      else if (process_error) reason = "no_such_process"
+      else if (option_error) reason = "invalid_option"
+      else if (seen || exit_code != 0) reason = "unclassified"
+      print reason
+    }
+  ' "$trace_stderr" 2>/dev/null) || reason=unclassified
+  printf '%s\n' "$reason"
 }
 
 start_host_exit_trace() {
@@ -96,37 +144,48 @@ start_host_exit_trace() {
     return 0
   fi
   trace_target_pid=${pids[0]}
-  trace_raw=$(mktemp /tmp/ink-host-exit-trace.XXXXXX) || {
-    trace_record 'tracer=unavailable reason=temporary-output-failed'
+  trace_dir=$(umask 077; mktemp -d /tmp/ink-host-exit-trace.XXXXXX 2>/dev/null) || {
+    trace_record 'tracer=unavailable reason=temporary-directory-failed'
     return 0
   }
+  trace_raw="$trace_dir/signals"
+  trace_stderr="$trace_dir/stderr"
+  if ! (umask 077; : > "$trace_raw" && : > "$trace_stderr") 2>/dev/null; then
+    trace_record 'tracer=unavailable reason=temporary-files-failed'
+    cleanup_host_exit_files
+    return 0
+  fi
   # Recheck the selected PID immediately before attaching; never inspect argv/env.
   comm=$(timeout --kill-after=5s 20s ps -p "$trace_target_pid" -o comm:32= 2>/dev/null) || code=$?
   comm=${comm//[[:space:]]/}
   if [[ "$code" -ne 0 || ! "$comm" =~ ^(qemu-system-x86|qemu-system-x86_64|emulator)$ ]]; then
     trace_record "tracer=unavailable reason=emulator-pid-recheck-failed exit=$code"
-    rm -f -- "$trace_raw"
-    trace_raw=
+    cleanup_host_exit_files
     return 0
   fi
   # GNU timeout creates its own process group (no --foreground). The already
   # running emulator remains outside it. INT detaches strace; no target kill.
-  # -f plus -o supplies PID prefixes; the raw file is outside uploaded artifacts.
-  timeout --signal=INT --kill-after=5s 300s sudo -n strace -f -q -e trace=none \
+  # -f/-o supplies PID prefixes. Both 0600 raw files are in our 0700 private
+  # directory outside uploaded artifacts; no privileged chmod/chown is needed.
+  LC_ALL=C timeout --signal=INT --kill-after=5s 300s sudo -n strace -f -q -e trace=none \
     -e signal=SIGSEGV,SIGABRT,SIGBUS,SIGFPE,SIGILL,SIGKILL,SIGTERM,SIGQUIT \
-    -p "$trace_target_pid" -o "$trace_raw" >/dev/null 2>&1 &
+    -p "$trace_target_pid" -o "$trace_raw" >/dev/null 2> "$trace_stderr" &
   trace_wrapper_pid=$!
   trace_record 'tracer=started diagnostic-only=true bound_seconds=300 kill_after_seconds=5'
   return 0
 }
 
 finish_host_exit_trace() {
-  [[ -n "$trace_wrapper_pid" ]] || return 0
-  local code=0 filter_code=0
+  if [[ -z "$trace_wrapper_pid" ]]; then
+    cleanup_host_exit_files
+    return 0
+  fi
+  local code=0 filter_code=0 reason
   # Reap only our bounded wrapper, including when EXIT cleanup runs early.
   wait "$trace_wrapper_pid" || code=$?
   trace_wrapper_pid=
-  trace_record "tracer_exit=$code"
+  reason=$(trace_error_reason "$code")
+  trace_record "tracer_exit=$code stderr_reason=$reason"
   printf 'host-emulator-exit-trace exit=%s target_pid=%s\n' "$code" "$trace_target_pid" >> "$diagnostics/capture-status.txt"
   case "$code" in
     0) trace_record 'tracer=finished' ;;
@@ -157,11 +216,10 @@ finish_host_exit_trace() {
       }
     ' "$trace_raw" | tail -n 120 > "$diagnostics/host-emulator-exit-trace.txt" || filter_code=$?
     trace_record "filter_exit=$filter_code"
-    rm -f -- "$trace_raw"
-    trace_raw=
   else
     trace_record 'trace_output=missing target_exit=no-observed-exit'
   fi
+  cleanup_host_exit_files
   return 0
 }
 

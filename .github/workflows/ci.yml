@@ -114,6 +114,57 @@ jobs:
               echo 'Host exit tracer unavailable: CI package installation failed; device tests continue.'
             fi
           fi
+          probe_sticky=
+          probe_dir=
+          cleanup_output_probe() {
+            local code=0
+            if [[ -n "$probe_sticky" ]]; then
+              rm -f -- "$probe_sticky" 2>/dev/null || code=$?
+            fi
+            if [[ -n "$probe_dir" ]]; then
+              rm -f -- "$probe_dir/output" "$probe_dir/stderr" 2>/dev/null || code=$?
+              rmdir -- "$probe_dir" 2>/dev/null || code=$?
+            fi
+            printf 'host-exit-output-probe cleanup_exit=%s\n' "$code"
+            return 0
+          }
+          trap 'probe_step_exit=$?; cleanup_output_probe; exit "$probe_step_exit"' EXIT
+          probe_root_open() {
+            local location="$1" path="$2" code=0 result=unclassified
+            LC_ALL=C timeout --kill-after=1s 9s sudo -n bash -c 'printf "%s\n" probe > "$1"' ink-host-exit-probe "$path" >/dev/null 2> "$probe_dir/stderr" || code=$?
+            if [[ "$code" -eq 0 ]]; then
+              result=open_ok
+            elif [[ "$code" -eq 124 || "$code" -eq 137 ]]; then
+              result=timeout_or_killed
+            elif grep -qi 'permission denied' "$probe_dir/stderr" 2>/dev/null; then
+              result=permission_denied
+            fi
+            printf 'host-exit-output-probe location=%s result=%s exit=%s\n' "$location" "$result" "$code"
+          }
+          probe_output_access() {
+            local protected_value=unavailable
+            protected_value=$(timeout --kill-after=1s 9s cat /proc/sys/fs/protected_regular 2>/dev/null) || protected_value=unavailable
+            [[ "$protected_value" =~ ^[0-9]+$ ]] || protected_value=unavailable
+            printf 'host-exit-output-probe protected_regular=%s\n' "$protected_value"
+            probe_dir=$(umask 077; mktemp -d /tmp/ink-host-exit-probe.XXXXXX 2>/dev/null) || {
+              echo 'host-exit-output-probe result=unavailable reason=private-directory-creation'
+              return 0
+            }
+            if ! (umask 077; : > "$probe_dir/output" && : > "$probe_dir/stderr") 2>/dev/null; then
+              echo 'host-exit-output-probe result=unavailable reason=private-file-creation'
+              return 0
+            fi
+            probe_sticky=$(umask 077; mktemp /tmp/ink-host-exit-probe.XXXXXX 2>/dev/null) || {
+              echo 'host-exit-output-probe result=unavailable reason=sticky-file-creation'
+              return 0
+            }
+            # Actual root O_CREAT opens, fixed content and positional owned paths.
+            # Each command has a 9s + 1s bound; failures never block device tests.
+            probe_root_open sticky-tmp "$probe_sticky"
+            probe_root_open private-directory "$probe_dir/output"
+            return 0
+          }
+          probe_output_access
       - name: Free unused native toolchains on ephemeral runner
         run: |
           test "$RUNNER_ENVIRONMENT" = github-hosted
