@@ -91,3 +91,14 @@ Task6签名提交4b84d7b仅为scripts/test-device.sh新增41行：已验证API35
 Task7为默认关闭的专项退出诊断：只在显式输入和API35时，对项目单个模拟器进程附加有界signal/exit-only strace；不采集syscall、参数、环境或内存，不注入信号或杀目标。正常完整验收关闭此追踪；追踪可能改变时序，专项通过不能替代正常矩阵或真机帧时。仅一次性CI宿主可按需要安装诊断工具，不在本地电脑安装。实施签名提交1bb739c，独立规范/质量评审无Critical/Important/Minor，控制者语法/diff/实际SSH签名核验通过；实际Linux附加、脱离及退出证据仍待执行。输出临时文件在上传目录外，过滤最多120行后删除；仅目标PID的终止行可确定目标退出，跟踪器退出码单独记录。
 
 本轮已另行只读刷新公开latest.json：仍0.5.0/code8、摘要939f5819c7040bb57fe67fdfdccb696e85921f9c77fef18b8e3a9de1536ffcae；私有候选b54e1c未进入公开清单。该GET是清单证据，不冒充认证桶对象数量核对。百炼仍暂缓、生产Cron关闭、未合入main。
+
+## 首次退出信号诊断与云端OTA只读复验
+
+[专项37093742902](https://github.com/amateurish-programmer/boomerang/actions/runs/37093742902)精确19ce8cc8cb51d9618ec278b38880c80b503a0976，显式trace_host_exit=true/API35。contracts成功；Android报告105项单元用例、0失败/忽略，Lint0错误、22项既有警告，构建成功。API35权限1项单列通过，主批次预期78项，仅迁移用例1项真实完成，下一项为空failure。QEMU3382在测试前存在、返回后消失；内核采集成功但无匹配事件，Crashpad仍missing_dump。
+
+新增追踪器启动后exit1，输出为空、target_exit=no-observed-exit。此退出码属于追踪器，不能当模拟器退出码，也不能推定附加成功。当前任意stderr被抑制，缺少具体失败原因，下一运行修复仅增加白名单错误枚举，并用实际CI的直接/tmp文件与私有目录文件做输出权限对照。Linux protected_regular限制是基于源码与官方内核文档的假设，尚未由该运行确认，不称模拟器根因。
+
+本轮只读流式读取公开安装包并计算SHA256：仍0.5.0/code8、11832343字节、939f5819c7040bb57fe67fdfdccb696e85921f9c77fef18b8e3a9de1536ffcae，与latest.json一致，私有b54e1c候选未发布。没有认证桶对象计数、生产数据库写入、Cron开启、手机触摸或候选安装。
+运行修复1签名ced6d78：仅CI与测试脚本，临时信号/stderr改为私有0700目录内预建0600文件；stderr只输出固定错误枚举。显式API35诊断步骤新增10秒内的直接/tmp文件和私有目录文件root打开对照、只读数字protected_regular及精确清理，不修改主机安全设置。独立精确复审无新增Critical/Important/Minor，控制者语法/diff/SSH签名通过。其探针、附加与真实目标退出原因仍须下一云端运行验证；源码修正不称根因已解决。
+
+37093742902的contracts原日志另确认26项AI边界、25项浏览器动效、16项崩溃元数据、23项OTA边界和20项隔离研究/租约，共110项Node测试全部通过，0失败/跳过；另有数据库迁移及双用户RLS/历史/同步断言通过。这是隔离CI证据，不是百炼真实调用或生产数据库写入验收。
