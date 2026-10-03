@@ -227,3 +227,5 @@ Basea903c04bd9f64d161a0bac3a5d974b3a73837170. Fullnormal37102712959 API26/API35p
 Primarychecked: https://developer.android.com/develop/ui/compose/testing/synchronization (manualclocknotdraw, waitidlependinglayoutdraw); https://developer.android.com/reference/android/view/ViewTreeObserver#registerFrameCommitCallback(java.lang.Runnable) API29hardware/framecommitPixelCopy; no assumptionnew1.13alphaAPIs available. Existingapp/testdeps unchanged.
 
 Task11source32ef582 independent spec/quality PASS, fresh105JVM/0 and79tasks buildpassed/SSHdiff verified. Original assertions preserved; full normal matrix bothoff runtime pending, no phone/publicOTA.
+
+Task11runtimecomplete: fullnormal37104430512 exactb8f6d1/source32ef582, all238actualtests passed0fail/errors/skips/noempty; bothflags0verified, native17each, failingOFF/Downloads passall3. Finalhighestcapabilitywholebranch3d..b8fPASS. UI-D7source/UI-D8cloudgates complete; physical/data/perf deferred peruser/publicOTA unchanged. Reportdocs/reports/UI-D8.md.
