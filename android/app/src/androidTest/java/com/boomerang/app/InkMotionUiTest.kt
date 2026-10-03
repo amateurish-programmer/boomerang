@@ -4,14 +4,17 @@ import android.app.Dialog
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.SharedPreferences
+import android.graphics.Bitmap
 import android.os.Build
 import android.provider.Settings
+import android.view.ViewTreeObserver
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
@@ -35,6 +38,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /** Synthetic screens, namespaced preferences and an in-memory Room store. Never creates ShellVM. */
 @RunWith(AndroidJUnit4::class)
@@ -207,7 +214,10 @@ class InkMotionUiTest {
     @Test fun fullDrawingChangesAcrossFramesAndOffDrawingStaysStatic() {
         compose.mainClock.autoAdvance = false
         var mode by mutableStateOf(InkMotionMode.FULL)
-        compose.setContent { BoomerangTheme(false) { Home(mode) } }
+        val acceptedFrames = AtomicInteger()
+        compose.setContent { CompositionLocalProvider(LocalInkFrameObserver provides { acceptedFrames.incrementAndGet(); Unit }) {
+            BoomerangTheme(false) { Home(mode) }
+        } }
         advance(1_200)
         assertRunning(true)
         val full = hero().captureToImage()
@@ -215,11 +225,92 @@ class InkMotionUiTest {
         advance(2_000)
         assertFalse("FULL must draw changing decorations", samePixels(full, hero().captureToImage()))
         capture("home-full-frame-b")
+        val fullFrames = acceptedFrames.get()
+        assertTrue("FULL fixture must observe accepted decorative frames", fullFrames > 0)
         compose.runOnIdle { mode = InkMotionMode.OFF }; advance()
-        val off = hero().captureToImage()
-        advance(2_000)
+        assertMode(InkMotionMode.OFF)
         assertRunning(false)
-        assertTrue("OFF must remain static across clock advancement", samePixels(off, hero().captureToImage()))
+        awaitCommittedFrame()
+        val off = hero().captureToImage()
+        val offStartFrames = acceptedFrames.get()
+        advance(2_000)
+        assertMode(InkMotionMode.OFF)
+        assertRunning(false)
+        awaitCommittedFrame()
+        val after = hero().captureToImage()
+        val offEndFrames = acceptedFrames.get()
+        val unchanged = samePixels(off, after)
+        if (!unchanged) saveOffPixelFailure(off, after, fullFrames, offStartFrames, offEndFrames)
+        assertTrue("OFF must remain static across clock advancement", unchanged)
+        assertEquals("OFF must accept zero additional decorative frames", offStartFrames, offEndFrames)
+    }
+
+    private fun awaitCommittedFrame() {
+        compose.waitForIdle()
+        instrumentation.waitForIdleSync()
+        // MainTestClock advances Compose state; Android submits hardware draws separately.
+        // API 26 and software rendering retain the existing idle/capture/strict pixel checks.
+        if (Build.VERSION.SDK_INT >= 29) {
+            val committed = AtomicBoolean(false)
+            val latch = CountDownLatch(1)
+            val callback = Runnable { committed.set(true); latch.countDown() }
+            var observer: ViewTreeObserver? = null
+            try {
+                instrumentation.runOnMainSync {
+                    val decor = compose.activity.window.decorView
+                    if (decor.isHardwareAccelerated) {
+                        val tree = decor.viewTreeObserver
+                        check(tree.isAlive) { "Host decor ViewTreeObserver must be alive" }
+                        observer = tree
+                        tree.registerFrameCommitCallback(callback)
+                        decor.invalidate()
+                    }
+                }
+                if (observer != null) {
+                    assertTrue("Host hardware frame did not commit within 5 seconds", latch.await(5, TimeUnit.SECONDS))
+                    assertTrue("Host hardware frame callback must acknowledge submission", committed.get())
+                }
+            } finally {
+                instrumentation.runOnMainSync {
+                    observer?.takeIf { it.isAlive }?.unregisterFrameCommitCallback(callback)
+                }
+            }
+        }
+    }
+
+    private fun saveOffPixelFailure(before: ImageBitmap, after: ImageBitmap, fullFrames: Int, startFrames: Int, endFrames: Int) {
+        // Both original PixelCopy captures already exist before any failure-only file I/O.
+        val first = before.toPixelMap()
+        val second = after.toPixelMap()
+        val width = maxOf(before.width, after.width)
+        val height = maxOf(before.height, after.height)
+        var count = 0L
+        var minX = width
+        var minY = height
+        var maxX = -1
+        var maxY = -1
+        for (y in 0 until height) for (x in 0 until width) {
+            val inBefore = x < before.width && y < before.height
+            val inAfter = x < after.width && y < after.height
+            if (inBefore != inAfter || (inBefore && inAfter && first[x, y] != second[x, y])) {
+                count++
+                minX = minOf(minX, x); minY = minOf(minY, y)
+                maxX = maxOf(maxX, x); maxY = maxOf(maxY, y)
+            }
+        }
+        val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "acceptance/ink-native")
+        check(directory.isDirectory || directory.mkdirs()) { "OFF failure evidence directory unavailable" }
+        val prefix = "off-pixel-api${Build.VERSION.SDK_INT}"
+        listOf("before" to before, "after" to after).forEach { (label, bitmap) ->
+            File(directory, "$prefix-$label.png").outputStream().use {
+                check(bitmap.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)) { "Cannot encode OFF $label capture" }
+            }
+        }
+        File(directory, "$prefix-difference.txt").writeText(
+            "before=${before.width}x${before.height}\nafter=${after.width}x${after.height}\n" +
+                "differentPixels=$count\nboundsInclusive=$minX,$minY,$maxX,$maxY\n" +
+                "fullAcceptedFrames=$fullFrames\noffStartFrames=$startFrames\noffEndFrames=$endFrames\n"
+        )
     }
 
     @Test fun realLifecyclePauseClearsFeedbackAndResumeStartsWithZeroDelta() {

@@ -363,20 +363,29 @@ class ExtrasSystemTest {
 
     private fun chooseDownloads(documents: String): Unit {
         val downloads = By.text(Pattern.compile("Downloads|下载"))
-        val roots = device.findObject(By.res(documents, "roots_list"))
-        if (roots == null) {
-            val drawer = device.findObject(By.desc(Pattern.compile("Show roots|显示根目录|显示根文件夹|显示位置")))
-                ?: device.findObject(By.res("android", "home"))
-                ?: device.findObject(By.res(documents, "toolbar"))?.findObject(By.clazz("android.widget.ImageButton"))
-            checkNotNull(drawer) { "DocumentsUI navigation drawer not found" }.click()
-        }
         for (attempt in 1..3) {
             try {
+                assertEquals("DocumentsUI must be foreground before choosing Downloads", documents, device.currentPackageName)
+                if (!device.hasObject(By.res(documents, "roots_list"))) {
+                    val drawer = device.findObject(By.pkg(documents).desc(Pattern.compile("Show roots|显示根目录|显示根文件夹|显示位置")))
+                        ?: device.findObject(By.pkg(documents).res("android", "home"))
+                        ?: device.findObject(By.res(documents, "toolbar"))?.findObject(By.clazz("android.widget.ImageButton"))
+                    checkNotNull(drawer) { "DocumentsUI navigation drawer not found" }.click()
+                }
                 val list = device.wait(Until.findObject(By.res(documents, "roots_list")), 5_000)
-                val target = list?.findObject(downloads) ?: device.wait(Until.findObject(downloads), 5_000)
-                checkNotNull(target) { "System Downloads provider not found" }.click()
-                device.waitForIdle()
-                return
+                checkNotNull(list) { "DocumentsUI roots drawer not found" }
+                var target = checkNotNull(list.findObject(downloads)) { "System Downloads row not found inside roots drawer" }
+                // Downloads text is not clickable on API 33; activate its actual row,
+                // stopping at the freshly acquired roots_list rather than a background label.
+                while (target != list && !target.isClickable) {
+                    target = checkNotNull(target.parent) { "System Downloads clickable row not found" }
+                }
+                check(target != list && target.isClickable && target.isEnabled && !target.visibleBounds.isEmpty) {
+                    "System Downloads row must be visible, enabled and clickable inside roots drawer"
+                }
+                target.click()
+                if (device.wait(Until.gone(By.res(documents, "roots_list")), 5_000)) return
+                check(attempt < 3) { "DocumentsUI roots drawer did not close after selecting Downloads" }
             } catch (error: StaleObjectException) {
                 if (attempt == 3) throw error
                 // DocumentsUI replaced its accessibility tree; reacquire the root and label.
@@ -385,13 +394,21 @@ class ExtrasSystemTest {
     }
 
     private fun saveDocument(documents: String, name: String): Unit {
+        assertTrue("DocumentsUI roots drawer must close before saving", device.wait(Until.gone(By.res(documents, "roots_list")), 5_000))
+        assertEquals("DocumentsUI must be foreground before entering filename", documents, device.currentPackageName)
         val input = device.wait(Until.findObject(By.res(documents, "file_name")), 5_000)
-            ?: device.findObject(By.clazz("android.widget.EditText"))
-        checkNotNull(input) { "DocumentsUI filename field not found" }.text = name
+            ?: device.findObject(By.pkg(documents).clazz("android.widget.EditText"))
+        checkNotNull(input) { "DocumentsUI filename field not found" }
+        check(input.isEnabled && input.isClickable && !input.visibleBounds.isEmpty) { "DocumentsUI filename must be visible, enabled and clickable" }
+        input.text = name
+        assertEquals("DocumentsUI must be foreground before clicking Save", documents, device.currentPackageName)
+        assertFalse("DocumentsUI roots drawer must remain closed before clicking Save", device.hasObject(By.res(documents, "roots_list")))
         val save = device.findObject(By.res(documents, "button_save"))
-            ?: device.findObject(By.res("android", "button1"))
-            ?: device.findObject(By.text(Pattern.compile("SAVE|Save|保存")))
-        checkNotNull(save) { "DocumentsUI Save button not found" }.click()
+            ?: device.findObject(By.pkg(documents).res("android", "button1"))
+            ?: device.findObject(By.pkg(documents).text(Pattern.compile("SAVE|Save|保存")))
+        checkNotNull(save) { "DocumentsUI Save button not found" }
+        check(save.isEnabled && save.isClickable && !save.visibleBounds.isEmpty) { "DocumentsUI Save button must be visible, enabled and clickable" }
+        save.click()
     }
 
     private fun selectDocument(name: String): Unit {
