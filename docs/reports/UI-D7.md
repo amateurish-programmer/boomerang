@@ -118,3 +118,11 @@ Task8源码签名e16519e只新增API35条件emulator-build15917651一行，API26
 
 因此撤销未证实有效的API35版本锁定，签名a45afe7只删此前一行，独立精确复审通过，回到最新模拟器选择；不是故障修复。下一Task9先取实际崩溃模块证据，不继续猜GPU/版本：默认关闭、API35专项的有界GDB只留最多8帧函数标识、模块basename、数字PC，禁用初始化/自动载入/在线符号请求。真实信号正常传递；原始调试输出、参数、变量、内存、core不上传，正式矩阵关闭全部观察器。功能与后端不改变，源码审查与真实采集仍待完成。
 Task9签名4a3e9c0仅改CI及设备诊断脚本，独立规范/质量评审通过，无可行动源码问题；控制者两个Bash脚本语法、diff及真实SSH签名复验通过。实际Linux GDB附加、模块元数据、原故障信号传递、超时脱离和清理仍待专项运行，不把源码评审当设备验收。默认关闭、仅API35显式开启；与signal观察器同时请求时仅fault生效，正式验收两者关闭。
+
+## 首轮模块观察器：附加成功但提前停止
+
+[专项37098443290](https://github.com/amateurish-programmer/boomerang/actions/runs/37098443290)，精确305e15e5b6733738c5fb72a9e6e9c1ea4fe76bc9，仅fault开启、signal关闭。contracts/Android成功；实际报告105项单元、0失败/忽略，Lint0错误22警告，构建通过。API35主预期78项仅迁移1项真实完成、下项空failure，权限1项单列通过；实际启动37.2.12/build16428233。
+
+GDB目标3409实际ready，observer_exit0、stderr_reasonnone、metadata validated、cleanup_exit0，事件仅ready/no_observed_fault/unknown_stop/detachcomplete。说明真实附加与安全脱离/清理可用，但未捕获故障信号、模块或函数；退出后宿主进程缺失，内核无事件。本轮不称测到SIGSEGV或模块，不把observer0当目标成功。下一修复仅记录首个未知停止事件的固定类型/信号枚举；在实测具体停止信号前保持脱离，不猜测新信号策略或GPU参数。
+
+Task9运行修复1签名b27471e仅改采集helper：首次unknown_stop增加固定事件类型/严格Linux信号枚举，不改变信号策略与脱离。独立精确复审通过，控制者语法/diff/SSH签名核验通过；具体首次停止信号仍须下一运行实测。
