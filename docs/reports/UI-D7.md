@@ -126,3 +126,11 @@ Task9签名4a3e9c0仅改CI及设备诊断脚本，独立规范/质量评审通�
 GDB目标3409实际ready，observer_exit0、stderr_reasonnone、metadata validated、cleanup_exit0，事件仅ready/no_observed_fault/unknown_stop/detachcomplete。说明真实附加与安全脱离/清理可用，但未捕获故障信号、模块或函数；退出后宿主进程缺失，内核无事件。本轮不称测到SIGSEGV或模块，不把observer0当目标成功。下一修复仅记录首个未知停止事件的固定类型/信号枚举；在实测具体停止信号前保持脱离，不猜测新信号策略或GPU参数。
 
 Task9运行修复1签名b27471e仅改采集helper：首次unknown_stop增加固定事件类型/严格Linux信号枚举，不改变信号策略与脱离。独立精确复审通过，控制者语法/diff/SSH签名核验通过；具体首次停止信号仍须下一运行实测。
+
+## 首次停止信号已实测
+
+[分类专项37099325331](https://github.com/amateurish-programmer/boomerang/actions/runs/37099325331)，精确0152f3e61ae5872eccb9897a93dec79128dd8639，contracts/Android成功；API35权限1项通过，主78项前三项真实完成、生命周期第4项空failure。目标3423首个事件明确kind=signal、SIGUSR1；ready、observer0、stderrnone、validated、detachcomplete、cleanup0。退出后目标缺失，尚无真实故障模块。
+
+下一修复仅将已测SIGUSR1在调试器中设为nostop/noprint/pass，保留信号正常透传，让观察器继续等故障；其他未知信号仍安全分类后脱离，不预设SIGUSR2。GDB官方Signals说明SIGUSR1默认stop/print/pass，设置nostop/pass改变观察暂停而不抑制目标信号；仍是有时序影响的默认关闭诊断，不是正常设备验收或宿主故障修复。
+
+运行修复2签名38e8654只新增一行静态SIGUSR1 nostop/noprint/pass。独立精确复审通过，控制者Bash/diff/真实SSH核验通过；其他未知事件仍分类脱离、五类故障信号采集与原信号透传不变。下一Linux实测才确认是否继续到故障模块。
