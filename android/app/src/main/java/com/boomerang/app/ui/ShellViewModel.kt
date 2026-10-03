@@ -24,7 +24,24 @@ data class AccountUiState(val ready: Boolean = false, val userId: String? = null
 data class ConflictDisplay(val id: String, val local: String, val cloud: String)
 data class HistoryDisplay(val version: Long, val createdAt: String, val fields: List<Pair<String, String>>)
 
+/** Appearance-only owner for reusable standalone screens; never opens the business database. */
+class InkAppearanceViewModel(application: Application) : AndroidViewModel(application) {
+    private val appearance = AppearanceRepository(application)
+    val systemAnimationScale = appearance.systemScale
+    override fun onCleared() { appearance.close() }
+}
+
 class ShellViewModel(application: Application, private val state: SavedStateHandle) : AndroidViewModel(application) {
+    private val appearance = AppearanceRepository(application)
+    val motionMode = appearance.motionMode
+    val systemAnimationScale = appearance.systemScale
+    fun setMotionMode(mode: InkMotionMode) = appearance.setMotionMode(mode)
+    private val _pendingSaveFeedback = MutableStateFlow<Long?>(null)
+    val pendingSaveFeedback = _pendingSaveFeedback.asStateFlow()
+    private var saveFeedbackSequence = 0L
+    fun consumeSaveFeedback(signal: Long) {
+        if (_pendingSaveFeedback.value == signal) _pendingSaveFeedback.value = null
+    }
     private var database = BoomerangDatabase.open(application)
     private var repository = BoomerangRepository(database)
     private val auth = AuthRepository(UrlConnectionTransport(), KeystoreSessionStore(application))
@@ -37,6 +54,11 @@ class ShellViewModel(application: Application, private val state: SavedStateHand
     private var detailJob: Job? = null
     private var pendingReminder: Pair<String, String>? = null
     private val clock = Clock.systemUTC()
+    private val _homeDateLabel = MutableStateFlow(localDateLabel())
+    val homeDateLabel = _homeDateLabel.asStateFlow()
+    fun refreshHomeDate() { _homeDateLabel.value = localDateLabel() }
+    private fun localDateLabel() = java.time.LocalDate.now(clock.withZone(java.time.ZoneId.systemDefault()))
+        .format(java.time.format.DateTimeFormatter.ofPattern("M月d日 · EEEE", java.util.Locale.CHINA))
     val destination = state.getStateFlow("destination", Destination.HOME.name)
     val screen = state.getStateFlow("screen", "main")
     val query = state.getStateFlow("query", "")
@@ -66,6 +88,7 @@ class ShellViewModel(application: Application, private val state: SavedStateHand
         }
     }
     private suspend fun switchAccount(userId: String?, restoring: Boolean = false) {
+        _pendingSaveFeedback.value = null
         val owner = userId ?: "local"
         _account.value = _account.value.copy(ready = false)
         libraryJob?.cancelAndJoin()
@@ -251,6 +274,8 @@ class ShellViewModel(application: Application, private val state: SavedStateHand
         viewModelScope.launch {
             try {
                 val id = repository.save(draft.content, draft.sources, draft.id, draft.revision)
+                // A transient receipt of the real completed write, never a synthetic save.
+                _pendingSaveFeedback.value = ++saveFeedbackSequence
                 ReminderScheduler.scan(getApplication())
                 writeDraft(EditorState()); _busy.value = false; openDetail(id)
             } catch (error: Exception) {
@@ -312,5 +337,5 @@ class ShellViewModel(application: Application, private val state: SavedStateHand
         (bundle.getStringArrayList("sourceTitles") ?: arrayListOf()).zip(bundle.getStringArrayList("sourceUrls") ?: arrayListOf()) { title, url -> SourceInput(title, url) },
         bundle.getString("id"), if (bundle.containsKey("revision")) bundle.getLong("revision") else null,
     )
-    override fun onCleared() { database.close() }
+    override fun onCleared() { appearance.close(); database.close() }
 }

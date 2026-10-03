@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -11,12 +12,17 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.boomerang.app.data.RecordEntity
 import com.boomerang.app.domain.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 
 @Composable
 internal fun Page(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
@@ -57,35 +63,54 @@ private fun RecordRow(record: RecordEntity, countdown: String, onOpen: (String) 
 }
 @Composable
 fun HomeScreen(state: LibraryState, countdown: (RecordEntity) -> String, onCreate: () -> Unit, onOpen: (String) -> Unit,
-    onRetry: () -> Unit, modifier: Modifier = Modifier, onLibrary: () -> Unit = {}) {
+    onRetry: () -> Unit, modifier: Modifier = Modifier, onLibrary: () -> Unit = {},
+    motionMode: InkMotionMode = InkMotionMode.FULL, systemAnimationScale: Float = defaultSystemAnimationScale(),
+    pendingSaveFeedback: Long? = null, onConsumeSaveFeedback: (Long) -> Unit = {},
+    entranceShown: Boolean = false, onEntranceShown: () -> Unit = {}, dateLabel: String = "", onHomeVisible: () -> Unit = {}) {
     val pending = state.records.filter { it.content.lifecycle == "ACTIVE" && it.content.confirmedStatus == null && it.content.dueEnd != null }
+    val list = rememberLazyListState()
+    val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val focused = LocalWindowInfo.current.isWindowFocused
+    val heroVisible by remember(list) { derivedStateOf {
+        val layout = list.layoutInfo
+        layout.visibleItemsInfo.any { it.key == "home_hero" && it.offset < layout.viewportEndOffset && it.offset + it.size > layout.viewportStartOffset }
+    } }
+    val eligible = inkMotionEligible(lifecycle == Lifecycle.State.RESUMED, focused, true, heroVisible)
+    val mode = effectiveMotionMode(motionMode, minOf(systemAnimationScale, frameworkAnimationScale()))
+    val entrance = remember { InkEntranceState() }
+    var hasEntered by rememberSaveable { mutableStateOf(entranceShown) }
+    val latestVisible by rememberUpdatedState(onHomeVisible)
+    LaunchedEffect(eligible) { if (eligible) latestVisible() }
     Column(modifier.fillMaxSize()) {
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp)) {
-            item {
-                Box(Modifier.fillMaxWidth().heightIn(min = 188.dp)) {
-                    InkMountains(Modifier.matchParentSize())
-                    Column(Modifier.padding(top = 12.dp, bottom = 80.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("回旋镖", style = MaterialTheme.typography.displaySmall)
-                        Text("记下原话，留待时间验证。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, contentPadding = PaddingValues(bottom = 16.dp)) {
+            item(key = "home_hero") {
+                InkLandscape(mode, eligible, hasEntered, { hasEntered = true; onEntranceShown() }, entrance,
+                    parallax = { if (list.firstVisibleItemIndex == 0) (list.firstVisibleItemScrollOffset / 40f).coerceAtMost(6f) else 0f }, dateLabel = dateLabel)
+            }
+            item(key = "home_heading") {
+                Column(Modifier.padding(horizontal = 24.dp).graphicsLayer { alpha = if (eligible && mode != InkMotionMode.OFF) entrance.recordsAlpha else 1f }) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("待回响", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                        TextButton(onClick = onLibrary, modifier = Modifier.heightIn(min = 48.dp).testTag("all_records")) { Text("全部记录") }
                     }
+                    LoadingOrError(state, onRetry)
                 }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("待回响", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onLibrary, modifier = Modifier.heightIn(min = 48.dp).testTag("all_records")) { Text("全部记录") }
-                }
-                LoadingOrError(state, onRetry)
             }
             if (!state.loading && state.error == null) {
                 if (pending.isEmpty()) item {
-                    Column(Modifier.padding(vertical = 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.padding(horizontal = 24.dp, vertical = 32.dp).graphicsLayer { alpha = if (eligible && mode != InkMotionMode.OFF) entrance.recordsAlpha else 1f }, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("还没有待跟进的期限", style = MaterialTheme.typography.titleLarge)
                         Text("无期限的记录可在镖库查看。", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                items(pending, key = { it.id }) { RecordRow(it, countdown(it), onOpen) }
+                items(pending, key = { it.id }) { record ->
+                    Box(Modifier.padding(horizontal = 24.dp).graphicsLayer { alpha = if (eligible && mode != InkMotionMode.OFF) entrance.recordsAlpha else 1f }) { RecordRow(record, countdown(record), onOpen) }
+                }
             }
         }
-        InkActionBar("新建记录", "create_record", onClick = onCreate)
+        InkDecoratedActionBar("记下原话", "create_record", feedback = {
+            InkSaveFeedback(pendingSaveFeedback, onConsumeSaveFeedback, mode, eligible, Modifier.matchParentSize())
+        }, onClick = onCreate)
     }
 }
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -169,6 +194,6 @@ fun ProfileScreen(modifier: Modifier = Modifier) = Page(modifier) {
     Text("原话、来源证据、AI 建议和你的确认分别保留。你的记录默认私有。")
 }
 @Preview(showBackground = true, name = "首页 · 明亮")
-@Composable private fun HomePreview() { BoomerangTheme(false) { HomeScreen(LibraryState(false), { "未设期限" }, {}, {}, {}) } }
+@Composable private fun HomePreview() { BoomerangTheme(false) { HomeScreen(LibraryState(false), { "未设期限" }, {}, {}, {}, motionMode = InkMotionMode.OFF, systemAnimationScale = 1f) } }
 @Preview(showBackground = true, name = "首页 · 深色")
-@Composable private fun DarkHomePreview() { BoomerangTheme(true) { HomeScreen(LibraryState(false), { "未设期限" }, {}, {}, {}) } }
+@Composable private fun DarkHomePreview() { BoomerangTheme(true) { HomeScreen(LibraryState(false), { "未设期限" }, {}, {}, {}, motionMode = InkMotionMode.OFF, systemAnimationScale = 1f) } }
