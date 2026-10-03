@@ -31,6 +31,25 @@ capture_host() {
   return 0
 }
 
+capture_emulator_processes() {
+  local name="$1"
+  capture_host "$name" bash -c '
+    set -o pipefail
+    printf "PID PPID COMM STATE RSS_KIB VSZ_KIB\n"
+    ps -eo pid=,ppid=,comm:32=,stat=,rss=,vsz= | awk '\''
+      $3 == "emulator" || $3 == "qemu-system-x86" || $3 == "qemu-system-x86_64" {
+        if (count < 4) { print; count++ }
+      }
+      END { if (count == 0) print "emulator process missing: no matching comm" }
+    '\''
+    code=$?
+    if [[ "$code" -ne 0 ]]; then
+      printf "emulator process metadata unavailable: ps/filter exit=%s\n" "$code"
+    fi
+    exit "$code"
+  '
+}
+
 copy_raw_results() {
   local destination="$1"
   local name="$2"
@@ -55,6 +74,9 @@ if [[ ! "$api" =~ ^[0-9]+$ ]]; then
   echo 'Could not read the emulator API level.' >&2
   exit 1
 fi
+if [[ "$api" -eq 35 ]]; then
+  capture_emulator_processes host-emulator-processes-before.txt
+fi
 if [[ "$api" -ge 33 ]]; then
   # Changing permission while instrumentation is running can kill its process.
   "${gradle[@]}" installDebug installDebugAndroidTest || exit "$?"
@@ -69,6 +91,25 @@ fi
 "${gradle[@]}" connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true "-Pandroid.testInstrumentationRunnerArguments.notClass=$permission_class"
 test_status=$?
 copy_raw_results "$diagnostics/raw-test-results" raw-test-results-copy.txt
+if [[ "$api" -eq 35 ]]; then
+  capture_emulator_processes host-emulator-processes-after.txt
+  # Read-only kernel evidence on the ephemeral GitHub Actions host, before ADB.
+  capture_host host-kernel-events.txt bash -c '
+    set -o pipefail
+    events=$(sudo -n dmesg | awk '\''
+      tolower($0) ~ /oom|out of memory|killed process|segfault|general protection fault|general fault|qemu|emulator/
+    '\'' | tail -n 120)
+    code=$?
+    if [[ "$code" -ne 0 ]]; then
+      printf "kernel events unavailable: noninteractive sudo/dmesg read or filter failed (privilege may be unavailable), exit=%s\n" "$code"
+    elif [[ -n "$events" ]]; then
+      printf "%s\n" "$events"
+    else
+      printf "kernel events: no matching events\n"
+    fi
+    exit "$code"
+  '
+fi
 capture_host host-emulator-crash.json node scripts/describe-emulator-crash.mjs
 capture_adb crash-log.txt logcat -b crash -d -v threadtime
 capture_adb runtime-log.txt logcat -b main -d -t 1000 -v threadtime
