@@ -26,6 +26,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,6 +50,11 @@ fun BoomerangApp(model: ShellViewModel = viewModel()) {
     val type by model.typeFilter.collectAsStateWithLifecycle()
     val result by model.resultFilter.collectAsStateWithLifecycle()
     val sort by model.sort.collectAsStateWithLifecycle()
+    val motionMode by model.motionMode.collectAsStateWithLifecycle()
+    val systemScale by model.systemAnimationScale.collectAsStateWithLifecycle()
+    val saveFeedback by model.pendingSaveFeedback.collectAsStateWithLifecycle()
+    val dateLabel by model.homeDateLabel.collectAsStateWithLifecycle()
+    var homeEntranceShown by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = screen != "main") { model.back() }
     Scaffold(bottomBar = {
         if (screen == "main") Column {
@@ -81,14 +89,18 @@ fun BoomerangApp(model: ShellViewModel = viewModel()) {
             "editor" -> RecordEditor(editor, errors, busy, message, model::updateContent, model::updateSources, model::save, model::back, modifier)
             "detail" -> RecordDetailScreen(detail, detail?.record?.let(model::countdown).orEmpty(), model.history(detail), busy, message, model::editCurrent, model::deleteCurrent, model::back, modifier, model::lockCurrent)
             else -> when (Destination.valueOf(selected)) {
-                Destination.HOME -> HomeScreen(library, model::countdown, model::openEditor, model::openDetail, model::retry, modifier, onLibrary = { model.select(Destination.LIBRARY) })
+                Destination.HOME -> HomeScreen(library, model::countdown, model::openEditor, model::openDetail, model::retry, modifier,
+                    onLibrary = { model.select(Destination.LIBRARY) }, motionMode = motionMode, systemAnimationScale = systemScale,
+                    pendingSaveFeedback = saveFeedback, onConsumeSaveFeedback = model::consumeSaveFeedback,
+                    entranceShown = homeEntranceShown, onEntranceShown = { homeEntranceShown = true }, dateLabel = dateLabel, onHomeVisible = model::refreshHomeDate)
                 Destination.LIBRARY -> LibraryScreen(library, model.filtered(library.records, query, type, result, sort), query, type, result, sort,
                     model::setQuery, model::setType, model::setResult, model::setSort, model::countdown, model::openEditor, model::openDetail, model::retry, modifier)
                 Destination.AI -> key(owner) { AssistantScreen(owner, model::openAiDraft, model::syncAndOpenDetail, modifier = modifier) }
                 Destination.PROFILE -> {
                     AccountScreen(account, owner, busy, model::signIn, model::signUp, model::signOut, model::sync,
                         model::previewAnonymous, model::importAnonymous, model::resolveConflict, model::openDetail,
-                        modifier = modifier, onUpdates = model::openUpdates, onExtras = model::openExtras)
+                        modifier = modifier, onUpdates = model::openUpdates, onExtras = model::openExtras,
+                        motionMode = motionMode, systemAnimationScale = systemScale, onMotionMode = model::setMotionMode)
                 }
             }
         }

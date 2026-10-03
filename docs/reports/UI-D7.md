@@ -1,0 +1,175 @@
+# UI-D7：青绿山水 Android 原生适配
+
+日期：2026-10-03。状态：原生接入及本地规定验证已完成，独立任务审查与原生设备验收正在推进；尚未发布新版本。
+
+## 范围
+
+将确认的宣纸/夜墨完整山水接入原生首页，保留品牌留白、真实记录和固定主动作。独立云雾、墨尘、有限渐显与真实保存后的朱砂反馈；我的空间提供完整/减少/关闭。系统关闭动画时静止，后台、失焦、非首页及主景不可见时暂停。编辑、详情与镖库保持安静。
+
+依据：[确认后的规范](../design/ink-wuxia-v2/SPEC.md)、[原生实施计划](../plans/2026-10-03-ink-native-adaptation.md)。不修改业务数据库、同步/账号隔离、百炼配置或 OTA 安装流程；版本保持 0.5.0/code8，原生与设备验收后再准备新版。
+
+## 当前验证证据
+
+控制者在本阶段运行原有浏览器动效、AI 边界与 OTA 发布器测试，共 74 项通过、0 失败/跳过；API 合约 20 操作检查通过，Cron 的语法/默认关闭/启用门槛/项目边界检查通过且未访问网络。这些结果不代表新增 Android 动效已完成。
+
+原生实现提交 `7bdd1ec8115b5207855d9171066d69e32f4f4e83`（Wuhao、SSH签名、逐文件变更表）已精确上传预览分支，独立任务审查的规范/质量均通过。本地规定 Android JVM、Lint、Debug 应用/测试 APK 构建通过；105 项 JVM（98 既有+7 新动效策略），0 失败/错误/跳过；Lint 0 错误/22 既有警告。初次集成构建发现旧 ActionBar 调用兼容问题，保留原签名、另加装饰版本后通过；新增 UseKtx 警告已清理。[源码CI37082202369](https://github.com/amateurish-programmer/boomerang/actions/runs/37082202369)的Android与隔离PostgreSQL/后端contracts全部成功，设备矩阵未执行。原生专项运行和矩阵结果随后补录；先行API35回归CI37082606430用于新原生布局/既有闭环证据。
+
+策略覆盖系统缩放上限、无效偏好默认、后台/失焦/主景不可见、恢复首帧 dt=0 与后续≤50ms。Compose 测试 Recomposer 不会提供 MotionDurationScale，独立 Home 默认参数因此通过不读业务数据的轻量 AppearanceViewModel 获取实际系统 scale；生产 App 仍由 ShellViewModel 传入同一 Repository 数据。没有 UI 直接访问存储。
+
+两版 Android 资源与批准原画逐字节相同，1536×1024；当前主景持有一版约6MiB ARGB像素，另有解码/GPU开销且切换时旧位图可能待GC。路径、池、画笔与变换缓存，不逐帧解码；Canvas/graphicsLayer读帧状态，不令记录列表逐帧重组。完整原画以Fit显示、随大字号增加主景高度；布局和实际峰值内存还需设备证据。30fps是调度上限，尚不是实测值。
+
+手机现已连接，本轮只读取/使用现有应用进行基线与备份，尚未安装新候选、测量新版性能。
+
+## 原生专项与先行设备结果
+
+专项提交 `d0a710c` 增加17项合成设备用例，覆盖三档选中与系统上限、强制明暗、360dp短窗/200%字号、实际Room保存/失败/取消、FULL像素变化/OFF静止、真实生命周期/弹窗焦点/主景滚出、有限反馈与入场、命名空间偏好及系统观察器更新/关闭。新增帧观察器默认null，不逐帧写生产语义；实际反馈另有开关状态供测试观察。设备源码已编译，尚未宣称这些用例运行通过。
+
+静态自查确认反馈旧协程取消可能清除新receipt，按身份清理并捕获启动receipt修复；独立任务审查发现测试语义读progress仍逐帧失效，修复提交 `3e6a4ae` 改为仅在开始/结束/取消切换布尔值。限定复审确认问题解决、原身份修复保留、无新增重要问题。本地最终105项JVM与规定构建通过，Lint仍0错误/22既有警告。
+
+该修复的[源码CI37084349922](https://github.com/amateurish-programmer/boomerang/actions/runs/37084349922)成功。诊断提交 `c721219` 的独立规范/质量复审通过：安装前拒绝实体手机，ADB读值、日志、截图拉取及报告复制设20秒超时与5秒终止宽限，记录采集状态并保留原测试退出值；报告同时上传原始UTP及单独权限结果。GNU timeout是Ubuntu CI前提，本机仅语法检查，没有对手机执行设备测试脚本。
+
+[完整矩阵37084939210](https://github.com/amateurish-programmer/boomerang/actions/runs/37084939210)的contracts/Android成功，三个设备作业失败。API26收到80项、18失败；API33主批次78项、19失败，权限批次单独留存；API35只收到3项完成结果，在生命周期用例失去后续结果，不能把XML中空栈的第4项记为完整执行。诊断采集已按约定限时结束，API26/33留存截图和日志，API35的crash/runtime/ANR读取均超时124；host可用内存约14GB，dmesg权限拒绝，没有充分证据断言OOM或崩溃原因。
+
+API26/33栈证实专项夹具有三个错误：STARTED状态查询不可见Compose语义树、测试线程构造Dialog、UiAutomation直接命令把数值引号写入系统设置。最后一项将原0.0恢复为字面量'0.0'，导致后续读取回退1并令普通UI测试等待动效空闲超时。反馈用例在FULL切REDUCED时失败，上一行替换receipt断言已通过；模式交接需单独查清而非放宽断言。已恢复原实施者修复夹具与必要反馈代码，保留原提醒/账号隔离断言；修复后再次完整运行。首次7bdd的通知失败仍独立留存，不能用这轮夹具污染解释此前所有失败。
+
+本轮API26的合成原生明暗、200%字号短窗截图已目视检查：完整原画正常、无品牌印章，主按钮可见；这些是失败批次中的局部视觉证据，不代表完整设备验收或用户手机通过。整分支最强模型审查因账号额度未启动，改用当前可用独立审查模型，并保留同样的CI/真机门槛。
+
+整分支固定c721的审查列出上述四项重要问题，没有额外业务、安全或数据契约问题。修复提交 `4b29bc41c4c7ac9d62e16776d65990ed7dce5f8c`（真实Wuhao身份、SSH签名已在本机密码学校验）仅修改两个Kotlin文件：测试以保留的默认空转移观察器核对暂停，不查询不可见语义树，并finally恢复RESUMED；Dialog在UI线程构造/展示/关闭；system scale使用校验过的无引号数字且逐次核对与精确恢复；反馈按receipt/eligibility/mode的协程归属令牌阻止旧启动/清理写入新状态。未改通知、账号隔离断言或业务保存。该补丁解释来自源码与失败位置，原协程交错没有独立运行轨迹，设备重跑才可确认修复。
+
+修复后本地规定验证BUILD SUCCESSFUL（4分14秒），105项JVM、0失败/错误/跳过，Lint0错误/22既有警告，Debug及测试APK构建通过，差异检查通过。四项精确复审与修复源码的完整设备矩阵仍待结果，不把本地编译记为专项17项运行成功。
+
+后续四项精确复审均确认源码已解决、无新重要问题。[修复矩阵37087125751](https://github.com/amateurish-programmer/boomerang/actions/runs/37087125751)使用d18e4ee（应用源码4b29bc4）：contracts/Android通过，API33主批次78项全部通过，17项动效专项实际执行通过；单独权限批次另列。API26为80项/2失败，17项动效专项及两个系统通知用例均通过，剩余原用例是键盘下保存按钮可见与Downloads选择后返回应用等待；未删除或放宽断言。不能将本轮API26整体记为通过。
+
+API35再次仅收到3项完整结果，在生命周期用例启动后消失。新UTP留存该用例的部分logcat，末尾到Activity RESUMED，未显示应用异常；清理时模拟器控制端口5554 Connection refused，说明模拟器进程/实例已丢失，但没有确定驱动崩溃栈。运行器37.2.12启动使用SwiftShader Vulkan；依据[Android官方排障](https://developer.android.com/studio/run/emulator-troubleshooting)，只对API35增加关闭Vulkan的启动参数作单变量对照，保留应用、测试、动作版本及矩阵。该调整是CI图形兼容假设；待实际重跑，不把它当成已证明的业务修复或手机性能结果。
+
+CI对照提交 `b34aae75f9b6bb2e7d34ab58a62541d95d84e173`仅增加一个启动参数行：原默认参数显式保留，只有API35附加-feature -Vulkan。独立规范/质量审查通过，无新问题；实际身份SSH签名已用已配置公钥在本机验证，GitHub对公钥仍显示unknown_key。源码4b29bc4与全部测试保持原样。阶段改动已建立[草稿PR1](https://github.com/amateurish-programmer/boomerang/pull/1)，完整设备验收之前不合并/发布。私有候选构建并行准备；此为当时的安装顺序，随后用户明确授权提前私有候选安装，最终又暂缓手动安装，见下述记录。
+
+先行[API35 CI37082606430](https://github.com/amateurish-programmer/boomerang/actions/runs/37082606430)使用7bdd1ec，contracts/Android成功；设备主批次预期61项，到第53项出现旧PendingIntent用例失败，仅收到52项完整结果。Gradle失败页的栈为空，随后ADB后处理停滞；新版提交使工作流最终cancelled。这是实际失败/不完整运行，不能记作仅例行取消或设备通过。现有HTML/日志已下载保留，根因未确认；新增有界ADB采集与原始UTP结果留存后复现，再决定修复。没有基于猜测改通知路由或放宽原测试。
+
+## 手机升级前基线
+
+用户确认可测试后读取 vivo V2430A/API36：已装0.5.0/code8，首次安装2026-09-17 22:27:36、最近升级2026-09-29 13:41:02。已安装APK 11832343字节、SHA256 `939f5819c7040bb57fe67fdfdccb696e85921f9c77fef18b8e3a9de1536ffcae`，与本轮公开latest.json一致；签名仍为既有证书 `748d6f30358c0be6b96e1ae29cd2538659f7b8f09ac1a40649f20bf26f08afd2`。确认此前系统安装已完成，不据此推断所有旧验收数据均保留。
+
+通过新鲜前台检查再操作当前回旋镖：当前登录账号有1条记录、1版历史，应用内导出唯一文件名备份，手机与本项目忽略目录各保存一份。JSON格式 boomerang-backup/version1，2087字节，摘要 `9172453a91db283050c9c87cd75de877206c132c439eff3620af93d962bebe41`（完整值见本机校验记录）；私人备份/原话/账号值不进入Git或CI。导出尚未结束的首次读取为空，等待实际写入完成后重新拉取与解析通过。没有退出登录、清数据、卸载或USB安装。
+
+## 原生平台决策
+
+- Android animator scale=0 时有效关闭；0<scale<1 限制完整为减少。与浏览器减少偏好的平台表达不同，代价是 Android 对完全关闭更严格。
+- 真实保存保持立即跳转详情。首页成功微粒在首次可见返回时消费一次，代价是反馈比浏览器预览晚出现；取消、校验错误和保存失败不能触发。
+- 最强审查模型因账号额度无法运行，采用当前可用模型完成独立整分支审查；代价是审查能力不同，仍须精确修复复审、完整设备矩阵和真机验收，未跳过发布门槛。
+
+## 待验收与后续
+
+完成原生实施、任务与整分支审查、规定构建后，自动进入 UI-D8 CI 设备矩阵与原生实拍检查。真机动画、内存/帧时、数据保留与 OTA 升级分别验收，不能由模拟器替代。此前 0.5.0 手机安装/原数据验收仍未关闭；百炼暂缓，生产 Cron 关闭。
+
+## 第三轮完整矩阵与私有候选
+
+[矩阵37088178975](https://github.com/amateurish-programmer/boomerang/actions/runs/37088178975)源码266b6f2（应用及测试仍4b29bc4）：contracts/Android成功；API26原始XML主批次80项、0失败/错误/跳过，原2项系统面板失败未复现；API33动效17项通过，主批次78项中Downloads导出返回应用等待1项失败，权限独立批次通过。API35关闭Vulkan后仍在生命周期用例启动后丢失模拟器，只收到3项完整结果；部分日志到PAUSED及加载libGLES，未给出确定驱动栈。主机/客体快照不证明OOM，不能据此改业务或删测试。原始结果保留；API26的UTP和拷贝XML是同批结果，不重复计数。
+
+本轮API26明暗首页合成截图已目视检查，完整山水、标题、记录与主按钮在360dp正常窗口清晰可见。截图是隔离测试Composable，不能据此验收整机导航/真机帧时。
+
+[私有签名候选37088181917](https://github.com/amateurish-programmer/boomerang/actions/runs/37088181917)源码266b6f2，publish_ota=false。包名com.boomerang.app，0.5.0/code8，16783491字节，SHA256 `b54e1ceaffb9ceddc37dd6a8bcbf4a2632d8f36cd1771adb841b0f1c68764f3b`；apksigner通过，证书与原安装包一致。仅留于本项目忽略目录，本机只读下载测试同摘要；未更新公开清单。以后仅CI/文档改变不改变此候选对应的应用源码4b29bc4，但报告仍记录不同构建提交。
+
+自动审批首次拒绝打开手机候选下载页，仅返回blocked by policy；用户明确授权安装后第二次相同行为仍被拒绝，命令均未执行，未设ADB反向端口、未导航、未安装。已向用户说明原因并提供手动USB文件传输及系统覆盖安装步骤；用户选择暂时无法手动安装，先继续云端验证。手机候选/数据保留/性能仍未验收，不能替用户确认系统身份，也不通过其他工具绕过拒绝。
+
+Task5仅CI诊断：有界Node标准库MINIDUMP最小异常/模块读取（不上传原dump或任意内存、字符串、路径），API35尝试当前支持的swiftshader，保留Vulkan关闭及其他API设置。初版77ab510的15项测试通过，独立审查发现目录校验后打开的替换竞态；修复9a4b911将遍历绑定验证句柄，先RED复现后16项GREEN，由控制者再次实跑16项通过。两提交SSH签名已核验，精确复审确认已解决、无新重要问题；实际Linux采集、整分支补充审查与完整矩阵仍待结果。该实验不宣称已修复模拟器或识别根因。
+
+## 第四轮完整矩阵与补充源码审查
+
+[矩阵37090395453](https://github.com/amateurish-programmer/boomerang/actions/runs/37090395453)精确5d994234a996aab419423a743e74f0b3b2beadbb（应用及测试4b29bc4，CI最小元数据9a4b911）。contracts及Android成功；API26主80项、API33主78项和权限独立1项，全为0失败/错误/跳过，合159次完整设备执行；两版本各17项动效专项通过。原系统面板失败此次未复现，首次/中间失败记录保留。API35权限1项先通过，主批次预期78项，只收到1项完整结果：迁移用例通过，actualValidationFailureAndEditorCancellationProduceNoSuccessReceipt是无错误栈的空失败槽；不能把XML中空failure元素按布尔值当作完成或通过。
+
+启动日志证明API35实际选择swiftshader并关闭Vulkan，但模拟器仍消失，后采集ADB超时/设备不存在。新增Node采集在Linux执行exit0，结果missing_dump，表示诊断未找到转储，不证明没有崩溃。宿主可用内存before11884MiB/after14223MiB，不给出OOM因果证据；原未提权dmesg被Operation not permitted拒绝。保留原始UTP、捕获状态及日志。下一Task6只增加API35宿主进程元数据与临时CI宿主的只读内核事件采集，仍有界/不覆盖测试结果，先调查退出再改运行设置或应用。
+
+整分支3d4f8b2..5d99423补充审查已完成，没有新的Critical/Important/Minor；原四项运行相关修复与目录竞态保护仍有效。此为源码/CI集成审查通过，不能将API35或手机验收标通过。原生API26明暗及200%字号截图已核对，API33本轮完整原生截图另留存；私人候选未安装、真机帧时/内存/数据保留待验收，公开OTA仍原0.5.0。
+
+Task6签名提交4b84d7b仅为scripts/test-device.sh新增41行：已验证API35才记录最多4个仿真器/QEMU进程的PID/PPID/comm/state/RSS/VSZ，无参数或环境变量；主测试及原始结果拷贝后、ADB之前，通过既有20秒捕获器读取只读sudo -n dmesg，仅保留OOM/被杀/段错误/通用故障/qemu/emulator事件至多120行，独立记录权限失败或无事件。API26/33路径、应用/测试、GPU参数、最终状态优先级不变。独立规范/质量审查通过，控制者bash语法/diff及真实签名核验通过；下一轮仅API35诊断不称完整矩阵验收，尚无退出原因结论。
+
+## API35宿主诊断结果与退出跟踪
+
+[专项37091621899](https://github.com/amateurish-programmer/boomerang/actions/runs/37091621899)源f705e4623e23bbd989bbea64d452e1ad22890c37，contracts/Android成功，API35权限1项独立通过。主批次预期78项，XML显示前三项真实完成、生命周期第4项空失败；不能把4个XML槽都记完成。测试前qemu-system-x86 PID3273、PPID1、stateSl、RSS3169316KiB；原始测试返回后没有匹配进程，确认宿主QEMU退出。过滤的sudo -n内核采集exit0，结果无匹配事件；最小Crashpad采集仍missing_dump。两种采集均真实执行但没有退出原因，不据此确定OOM、驱动模块或应用异常。部分生命周期日志仍到EmptyFloatingActivity及PAUSED；原始UTP与状态各自保留。
+
+Task7为默认关闭的专项退出诊断：只在显式输入和API35时，对项目单个模拟器进程附加有界signal/exit-only strace；不采集syscall、参数、环境或内存，不注入信号或杀目标。正常完整验收关闭此追踪；追踪可能改变时序，专项通过不能替代正常矩阵或真机帧时。仅一次性CI宿主可按需要安装诊断工具，不在本地电脑安装。实施签名提交1bb739c，独立规范/质量评审无Critical/Important/Minor，控制者语法/diff/实际SSH签名核验通过；实际Linux附加、脱离及退出证据仍待执行。输出临时文件在上传目录外，过滤最多120行后删除；仅目标PID的终止行可确定目标退出，跟踪器退出码单独记录。
+
+本轮已另行只读刷新公开latest.json：仍0.5.0/code8、摘要939f5819c7040bb57fe67fdfdccb696e85921f9c77fef18b8e3a9de1536ffcae；私有候选b54e1c未进入公开清单。该GET是清单证据，不冒充认证桶对象数量核对。百炼仍暂缓、生产Cron关闭、未合入main。
+
+## 首次退出信号诊断与云端OTA只读复验
+
+[专项37093742902](https://github.com/amateurish-programmer/boomerang/actions/runs/37093742902)精确19ce8cc8cb51d9618ec278b38880c80b503a0976，显式trace_host_exit=true/API35。contracts成功；Android报告105项单元用例、0失败/忽略，Lint0错误、22项既有警告，构建成功。API35权限1项单列通过，主批次预期78项，仅迁移用例1项真实完成，下一项为空failure。QEMU3382在测试前存在、返回后消失；内核采集成功但无匹配事件，Crashpad仍missing_dump。
+
+新增追踪器启动后exit1，输出为空、target_exit=no-observed-exit。此退出码属于追踪器，不能当模拟器退出码，也不能推定附加成功。当前任意stderr被抑制，缺少具体失败原因，下一运行修复仅增加白名单错误枚举，并用实际CI的直接/tmp文件与私有目录文件做输出权限对照。Linux protected_regular限制是基于源码与官方内核文档的假设，尚未由该运行确认，不称模拟器根因。
+
+本轮只读流式读取公开安装包并计算SHA256：仍0.5.0/code8、11832343字节、939f5819c7040bb57fe67fdfdccb696e85921f9c77fef18b8e3a9de1536ffcae，与latest.json一致，私有b54e1c候选未发布。没有认证桶对象计数、生产数据库写入、Cron开启、手机触摸或候选安装。
+运行修复1签名ced6d78：仅CI与测试脚本，临时信号/stderr改为私有0700目录内预建0600文件；stderr只输出固定错误枚举。显式API35诊断步骤新增10秒内的直接/tmp文件和私有目录文件root打开对照、只读数字protected_regular及精确清理，不修改主机安全设置。独立精确复审无新增Critical/Important/Minor，控制者语法/diff/SSH签名通过。其探针、附加与真实目标退出原因仍须下一云端运行验证；源码修正不称根因已解决。
+
+37093742902的contracts原日志另确认26项AI边界、25项浏览器动效、16项崩溃元数据、23项OTA边界和20项隔离研究/租约，共110项Node测试全部通过，0失败/跳过；另有数据库迁移及双用户RLS/历史/同步断言通过。这是隔离CI证据，不是百炼真实调用或生产数据库写入验收。
+
+## 退出信号已确认与版本对照
+
+[专项37095346773](https://github.com/amateurish-programmer/boomerang/actions/runs/37095346773)精确9a47e8f871090a5127e048754c37310b0081ed1a。contracts/Android通过；API35权限1项通过，主批次仍仅迁移1项完成、后续为空failure，不能记完整验收通过。
+
+实际Linux探针protected_regular=2，直接/tmp预建文件的root打开permission_denied/exit1，私有目录的root打开open_ok/exit0，探针清理exit0。原错误stderr未保留，不能倒推上一轮具体strace错误字符串；本轮修复后的追踪真实可用：tracer_exit0、stderr_reason=none、filter0、cleanup0，target_exit=observed。TID4280收到SIGSEGV/SEGV_MAPERR，明确目标QEMU3336最终“killed by SIGSEGV (core dumped)”，保留120行内信号/退出事件。此为宿主模拟器段错误证据，不能把跟踪器exit0当模拟器成功，也不能把core dumped标签当实际可用转储。内核仍无匹配事件，Crashpadmissing_dump，尚无精确崩溃模块/堆栈。没有捕获或上传core/任意内存。
+
+只读取得上次通过的API35[36522534797](https://github.com/amateurish-programmer/boomerang/actions/runs/36522534797)实际job109261560484日志：37.1.11.0/build15917651；当前故障运行实际37.2.12.0/build16428233。下一Task8仅对API35使用原已通过的官方构建作单变量版本对照，保留当前swiftshader/Vulkan关闭、原测试与全部断言，退出追踪关闭；正式完整矩阵同样关闭追踪。action v2确有emulator-build入口，官方15917651归档HEAD200，仅CI宿主下载，不在本地安装。若对照有效，只能称CI兼容性绕行，不能声称已确定37.2.12内部具体缺陷；真机候选安装仍按用户选择暂缓。
+Task8源码签名e16519e只新增API35条件emulator-build15917651一行，API26/33空覆盖保留原路径；独立规范/质量审查通过无新增问题，控制者diff/实际SSH签名核验通过。下一次关闭追踪的API35原全用例对照仍待实际启动版本/原始结果，未称已修复。
+
+## 旧构建对照失败，停止盲目改参数
+
+[关闭追踪的对照37096369120](https://github.com/amateurish-programmer/boomerang/actions/runs/37096369120)精确4f0b4084a81c64d3a287c24445d17f23198c5145：contracts及Android通过；确认官方15917651已安装、实际启动37.1.11.0，SwiftShader GLES3.0；API35权限1项通过，主预期78项仍只有迁移1项完成、下一空failure，宿主进程消失。正常运行未附加追踪器，没有本轮具体退出信号，不能把上一追踪轮的SIGSEGV签名强行记成本轮实测。版本回退不足以解决问题，无转储/内核事件。
+
+因此撤销未证实有效的API35版本锁定，签名a45afe7只删此前一行，独立精确复审通过，回到最新模拟器选择；不是故障修复。下一Task9先取实际崩溃模块证据，不继续猜GPU/版本：默认关闭、API35专项的有界GDB只留最多8帧函数标识、模块basename、数字PC，禁用初始化/自动载入/在线符号请求。真实信号正常传递；原始调试输出、参数、变量、内存、core不上传，正式矩阵关闭全部观察器。功能与后端不改变，源码审查与真实采集仍待完成。
+Task9签名4a3e9c0仅改CI及设备诊断脚本，独立规范/质量评审通过，无可行动源码问题；控制者两个Bash脚本语法、diff及真实SSH签名复验通过。实际Linux GDB附加、模块元数据、原故障信号传递、超时脱离和清理仍待专项运行，不把源码评审当设备验收。默认关闭、仅API35显式开启；与signal观察器同时请求时仅fault生效，正式验收两者关闭。
+
+## 首轮模块观察器：附加成功但提前停止
+
+[专项37098443290](https://github.com/amateurish-programmer/boomerang/actions/runs/37098443290)，精确305e15e5b6733738c5fb72a9e6e9c1ea4fe76bc9，仅fault开启、signal关闭。contracts/Android成功；实际报告105项单元、0失败/忽略，Lint0错误22警告，构建通过。API35主预期78项仅迁移1项真实完成、下项空failure，权限1项单列通过；实际启动37.2.12/build16428233。
+
+GDB目标3409实际ready，observer_exit0、stderr_reasonnone、metadata validated、cleanup_exit0，事件仅ready/no_observed_fault/unknown_stop/detachcomplete。说明真实附加与安全脱离/清理可用，但未捕获故障信号、模块或函数；退出后宿主进程缺失，内核无事件。本轮不称测到SIGSEGV或模块，不把observer0当目标成功。下一修复仅记录首个未知停止事件的固定类型/信号枚举；在实测具体停止信号前保持脱离，不猜测新信号策略或GPU参数。
+
+Task9运行修复1签名b27471e仅改采集helper：首次unknown_stop增加固定事件类型/严格Linux信号枚举，不改变信号策略与脱离。独立精确复审通过，控制者语法/diff/SSH签名核验通过；具体首次停止信号仍须下一运行实测。
+
+## 首次停止信号已实测
+
+[分类专项37099325331](https://github.com/amateurish-programmer/boomerang/actions/runs/37099325331)，精确0152f3e61ae5872eccb9897a93dec79128dd8639，contracts/Android成功；API35权限1项通过，主78项前三项真实完成、生命周期第4项空failure。目标3423首个事件明确kind=signal、SIGUSR1；ready、observer0、stderrnone、validated、detachcomplete、cleanup0。退出后目标缺失，尚无真实故障模块。
+
+下一修复仅将已测SIGUSR1在调试器中设为nostop/noprint/pass，保留信号正常透传，让观察器继续等故障；其他未知信号仍安全分类后脱离，不预设SIGUSR2。GDB官方Signals说明SIGUSR1默认stop/print/pass，设置nostop/pass改变观察暂停而不抑制目标信号；仍是有时序影响的默认关闭诊断，不是正常设备验收或宿主故障修复。
+
+运行修复2签名38e8654只新增一行静态SIGUSR1 nostop/noprint/pass。独立精确复审通过，控制者Bash/diff/真实SSH核验通过；其他未知事件仍分类脱离、五类故障信号采集与原信号透传不变。下一Linux实测才确认是否继续到故障模块。
+
+## 故障帧已捕获，模块尚不可识别
+
+[专项37100081368](https://github.com/amateurish-programmer/boomerang/actions/runs/37100081368)，精确06007ca2af45deb6fefdaa8019b904745577abf2。contracts/Android通过，API35权限1项通过、主78项仅迁移1项完成，下项空failure。SIGUSR1透传后，目标3172真实捕获SIGSEGV和8帧数字PC；全部函数/模块unavailable，首帧0x562763932b8b，后续地址亦不能凭外形推定栈损坏或根因。observer0、stderrnone、validated、cleanup0；没有目标终止事件标记，不能据工具0断言本轮终止信号，宿主后检查仍缺失。
+
+下一补充仅在真实故障停止时内部读取受限进程映射，核对PC是否实际属于某映像、匿名执行区或未映射区，再输出严格模块basename/文件偏移/固定分类。gdb.solib_name=None不能自动推断主程序，原始映射、路径、内存或core不输出。正式验收仍未通过，手机暂缓，公开OTA保持。
+
+运行修复3签名3ba276e仅改采集helper，内部读取上限1MiB的实际进程映射；仅唯一包含PC的可执行文件映射可给严格模块basename/文件偏移，匿名/未映射/非执行/不可识别/歧义以固定分类记录。独立精确复审通过，无可行动问题，控制者语法/diff/真实SSH核验通过。实际归属待云端，不采集原始映射、路径或内存字节。另已下载并核对06007ca最新报告105单元0失败/忽略、Lint0错22既有警告、110Node0失败/跳过及隔离数据库行为断言通过。
+
+## 实际故障位于匿名可执行区
+
+[专项37101220493](https://github.com/amateurish-programmer/boomerang/actions/runs/37101220493)，精确69a76bc6fa5ba6eab28e009b32a85faefb08fbe0。contracts/Android通过，API35权限1项通过，主仅1项完成、下一空failure。目标3435真实SIGSEGV、mapsavailable，首帧0x55c54d33db8b为anonymous_exec，后7帧unmapped；模块/函数/文件偏移均不可识别，不推定主程序、JIT归属或栈损坏。工具0、stderrnone、validated、cleanup0，没有本轮终止事件标记。
+
+实际启动日志确认SwiftShader GLES3.0/4.0.0.1。基于新匿名执行区故障证据提出独立软件图形后端对照，仅API35改官方支持Mesa Lavapipe，其他参数/全部用例不变，两观察器关闭。此为检验图形路径假设，不宣称SwiftShader精确根因；若通过必须完整矩阵再验，若失败停止继续轮换后端。手机安装仍暂缓。
+
+Task10签名f399e76只替换API35 GPU选择swiftshader为lavapipe，26/33及35的Vulkan关闭条件不变。独立规范/质量评审通过，控制者精确diff/真实SSH核验通过。尚须确认实际后端和全部测试，不能据源码一行称已修复。
+
+## 关闭观察器的API35全部测试首次通过
+
+[正常专项37102164106](https://github.com/amateurish-programmer/boomerang/actions/runs/37102164106)，精确a903c04bd9f64d161a0bac3a5d974b3a73837170，两观察器环境0，contracts/Android/device35全部成功。原始主XML78项、权限XML1项，均0失败/错误/跳过，共79次真实执行，不重复计复制XML；17项新动效测试全部通过，acceptance截图已取得，宿主QEMU3333测试后仍存在。
+
+重要实际路径区别：命令请求-gpu lavapipe，启动vulkan_mode_selected=lavapipe，但gles_mode_selected=swangle；实际图形适配器ANGLE+Vulkan SwiftShader Device(Subzero)/driver5.0，GLES为ANGLE2.1/ES3.1。因此不能声称Mesa GLES或客体Vulkan实测成功；仅该配置切到了不同于原SwiftShader4的GLES路径并通过原全部用例，是CI兼容性方案，不是旧驱动具体缺陷证明。为保持验证对象一致，先保留这次成功的精确参数，不在完整矩阵前再改字面量。
+
+最高能力模型本轮整分支3d..a903源码审查通过，无新可行动问题；再次独立核对预期105JVM/110Node/完整矩阵238次(80+79+79)，原测试断言未削弱。控制者已目视API35合成原生首页明暗/OFF及200%短窗截图，实际原画与CTA呈现；不替代真实MainActivity/手机性能验收。已自动开始同源关闭观察器[完整矩阵37102712959](https://github.com/amateurish-programmer/boomerang/actions/runs/37102712959)，尚待结果，手机仍暂缓、公开OTA未发布候选。
+
+## 完整矩阵：API26/35成功、API33两项失败
+
+[37102712959](https://github.com/amateurish-programmer/boomerang/actions/runs/37102712959)同源a903、两观察器关闭，contracts/Android/API26/API35成功，API33失败。33原始failure为OFF must remain static across clock advancement及Downloads导出awaitApplication。实际失败PNG/XML仍显示根抽屉打开、Downloads选中、SAVE被抽屉遮挡；现有chooseDownloads只等genericidle。OFF用例仅主时钟64ms+waitidle后取PixelCopy，没有帧提交同步及失败前后图；源OFF绘制/时钟门禁未见确认缺陷，不能据该断言直接称产品OFF仍播放。下一Task11只修测试同步条件，增加真实提交等待及失败图/帧计数证据，严格像素相等和全部导入断言保留，不动产品/GPU参数。最高能力整分支a903源码审查通过不替代这次失败。
+
+控制者已下载完整147三版本原始报告：26主80/0失败；33主78/2失败+权限1/0失败；35主78/0失败+权限1/0失败。共238项真实完成，236通过2失败、无跳过或空槽，不重复计复制XML。26/35各17动效全部通过，33动效17中OFF像素1项失败；35的正常完整通过再次复现，不能因此把整矩阵判绿。
+
+## Task11测试同步源码验证完成
+
+签名提交32ef5825182c14a44978b5c5034b49b4785bba56仅修改InkMotionUiTest及ExtrasSystemTest：Downloads在实际roots_list内点击可点击祖先并等待抽屉关闭，再核对前台和文件名/保存控件；OFF在有效模式与停止语义已确认后，API29及以上硬件绘制使用有界5秒帧提交等待，再保留原逐像素相等检查，并额外验证2000ms内零装饰帧。仅在实际前后图已捕获且不一致时写位图及数字差异；API26/软件保留原静止判断。无像素容差、区域忽略、跳过、改产品或GPU参数，全部导入/历史/队列断言保留。
+
+独立任务规范与质量审查通过，无问题；控制者核验精确两文件、SSH签名及diff检查。规定四任务构建首次成功但105单元报告部分复用，因此同命令加--rerun-tasks重新实际执行全部79任务，3分51秒成功。新生成14套XML共105单元，0失败/错误/跳过；Lint0错误、22既有警告，Debug与AndroidTest APK均成功。首次PowerShell未引用-P参数的启动失败另留日志，不计测试成功。该证据仅为源码/编译通过，真实修复效果等待下一关闭观察器的完整26/33/35矩阵，保留37102712959两项失败。应用生产代码仍4b29bc4，私有候选未安装，手机/帧时/内存/原数据保留另验。
+## UI-D8正常完整矩阵已通过
+
+[37104430512](https://github.com/amateurish-programmer/boomerang/actions/runs/37104430512)精确b8f6d1：contracts/Android/26/33/35全部通过。控制者原始XML核对80+79+79=238次，0失败/错误/跳过、无空槽，三个版本各17项动效及此前两项失败全部通过。最终Task11与最高能力整分支审查均通过。实际35GLES仍swangle/ANGLE+SwiftShader5，不称Mesa实测；本轮明暗与200%截图已核对。UI-D7源码与UI-D8云端验收完成，手机/性能/升级数据按用户决定暂缓，公开OTA原版、百炼暂缓/Cron关闭，完整证据及下一门槛见[UI-D8](UI-D8.md)。

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>回旋镖 · 青绿山水首页样板</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="preview.js"></script>
+</head>
+<body data-view="both">
+  <svg class="symbol-bank" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9"/></symbol>
+    <symbol id="library" viewBox="0 0 24 24"><path d="M5 3h14v18H5zM8 7h8M8 11h8M8 15h5"/></symbol>
+    <symbol id="spark" viewBox="0 0 24 24"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/></symbol>
+    <symbol id="person" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></symbol>
+    <symbol id="bell" viewBox="0 0 24 24"><path d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5zM10 21h4M12 2v2"/></symbol>
+    <symbol id="arrow" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol>
+  </svg>
+
+  <main class="studio">
+    <header class="studio-header">
+      <div>
+        <p class="eyebrow">BOOMERANG / DESIGN STUDY 02</p>
+        <h1>青绿入墨，山水有声。</h1>
+        <p class="intro">完整山水构图，真实页面排版。山形保持稳定，云雾与墨尘缓缓流动。</p>
+      </div>
+      <p class="edition">首页视觉样板<br><span>2026.10.02 · 动态样板</span></p>
+    </header>
+    <div class="review-bar">
+      <div class="view-options" role="group" aria-label="预览主题">
+        <button type="button" data-view-button="both" aria-pressed="true">并排对照</button>
+        <button type="button" data-view-button="light" aria-pressed="false">宣纸</button>
+        <button type="button" data-view-button="dark" aria-pressed="false">夜墨</button>
+      </div>
+      <p>演示数据 · 可点击记录、新建与导航查看布局</p>
+    </div>
+    <div class="motion-bar">
+      <div class="view-options motion-options" role="group" aria-label="动效强度">
+        <button type="button" data-motion-button="full" aria-pressed="true">完整</button>
+        <button type="button" data-motion-button="reduced" aria-pressed="false">减少</button>
+        <button type="button" data-motion-button="off" aria-pressed="false">关闭</button>
+        <button type="button" data-motion-replay>重播动效</button>
+      </div>
+      <p>山形不动 · 背景与遮挡时暂停 · 跟随系统减少动效设置</p>
+    </div>
+    <section class="samples" aria-label="首页明暗对照">
+      <article class="sample" data-sample="light">
+        <div class="sample-label"><h2>宣纸 · 青绿远山</h2><span>01 / 白昼</span></div>
+        <section class="phone" data-theme="light" aria-label="宣纸首页样板">
+          <div class="phone-scroll">
+            <header class="landscape">
+              <img class="mountain" src="assets/landscape-light.png" alt="宣纸上的青绿山水，层叠山石与松林消融在云雾中">
+              <div class="status-bar" aria-hidden="true"><b>9:41</b><span>▴▴▴　⌁　▰</span></div>
+              <div class="brand"><p class="brand-note">记下原话，留待时间验证。</p><h3>回旋镖</h3></div>
+              <button class="bell icon-button" type="button" data-demo="notifications" aria-label="查看通知"><svg><use href="#bell"/></svg><i></i></button>
+              <div class="date-line"><span>十月二日 · 星期五</span><span>本机空间</span></div>
+            </header>
+            <div class="workspace">
+              <div class="section-heading"><h4>待回响 <span>2条待跟进</span></h4><button type="button" data-demo="library" class="text-button">全部记录<svg><use href="#arrow"/></svg></button></div>
+              <button type="button" class="record" data-demo="run">
+                <span class="record-meta"><span>目标 · 我</span><span class="due urgent">今天到期</span></span>
+                <span class="quote">这一周，坚持跑步三次。</span>
+                <span class="record-foot"><span>10.02 — 10.02</span><span>查看记录<svg><use href="#arrow"/></svg></span>
+              </button>
+              <button type="button" class="record" data-demo="read">
+                <span class="record-meta"><span>承诺 · 阅读</span><span class="due">还剩3天</span></span>
+                <span class="quote">读完《山居笔记》，<br>写下一篇读后感。</span>
+                <span class="record-foot"><span>10.01 — 10.05</span><span>查看记录<svg><use href="#arrow"/></svg></span>
+              </button>
+              <p class="daily-note">原话留存，结果由你确认。</p>
+            </div>
+          </div>
+          <div class="phone-bottom">
+            <div class="primary-wrap"><button class="primary-button" type="button" data-demo="create"><svg><use href="#plus"/></svg>记下原话</button></div>
+            <nav class="navigation" aria-label="宣纸底部导航">
+              <button type="button" aria-current="page" data-demo="home"><svg><use href="#home"/></svg><span>首页</span></button>
+              <button type="button" data-demo="library"><svg><use href="#library"/></svg><span>镖库</span></button>
+              <button type="button" data-demo="assistant"><svg><use href="#spark"/></svg><span>AI</span></button>
+              <button type="button" data-demo="profile"><svg><use href="#person"/></svg><span>我的</span></button>
+            </nav>
+          </div>
+        </section>
+        <p class="sample-caption">石青与赭石保留山岩笔触，左侧留白承载品牌；列表接续宣纸底色。</p>
+      </article>
+      <article class="sample" data-sample="dark">
+        <div class="sample-label"><h2>夜墨 · 月雾青山</h2><span>02 / 夜色</span></div>
+        <section class="phone" data-theme="dark" aria-label="夜墨首页样板">
+          <div class="phone-scroll">
+            <header class="landscape">
+              <img class="mountain" src="assets/landscape-dark.png" alt="同构图的深青夜色山水，山岩笔触与淡青月雾保留层次">
+              <div class="status-bar" aria-hidden="true"><b>9:41</b><span>▴▴▴　⌁　▰</span></div>
+              <div class="brand"><p class="brand-note">记下原话，留待时间验证。</p><h3>回旋镖</h3></div>
+              <button class="bell icon-button" type="button" data-demo="notifications" aria-label="查看通知"><svg><use href="#bell"/></svg><i></i></button>
+              <div class="date-line"><span>十月二日 · 星期五</span><span>本机空间</span></div>
+            </header>
+            <div class="workspace">
+              <div class="section-heading"><h4>待回响 <span>2条待跟进</span></h4><button type="button" data-demo="library" class="text-button">全部记录<svg><use href="#arrow"/></svg></button></div>
+              <button type="button" class="record" data-demo="run">
+                <span class="record-meta"><span>目标 · 我</span><span class="due urgent">今天到期</span></span>
+                <span class="quote">这一周，坚持跑步三次。</span>
+                <span class="record-foot"><span>10.02 — 10.02</span><span>查看记录<svg><use href="#arrow"/></svg></span>
+              </button>
+              <button type="button" class="record" data-demo="read">
+                <span class="record-meta"><span>承诺 · 阅读</span><span class="due">还剩3天</span></span>
+                <span class="quote">读完《山居笔记》，<br>写下一篇读后感。</span>
+                <span class="record-foot"><span>10.01 — 10.05</span><span>查看记录<svg><use href="#arrow"/></svg></span>
+              </button>
+              <p class="daily-note">原话留存，结果由你确认。</p>
+            </div>
+          </div>
+          <div class="phone-bottom">
+            <div class="primary-wrap"><button class="primary-button" type="button" data-demo="create"><svg><use href="#plus"/></svg>记下原话</button></div>
+            <nav class="navigation" aria-label="夜墨底部导航">
+              <button type="button" aria-current="page" data-demo="home"><svg><use href="#home"/></svg><span>首页</span></button>
+              <button type="button" data-demo="library"><svg><use href="#library"/></svg><span>镖库</span></button>
+              <button type="button" data-demo="assistant"><svg><use href="#spark"/></svg><span>AI</span></button>
+              <button type="button" data-demo="profile"><svg><use href="#person"/></svg><span>我的</span></button>
+            </nav>
+          </div>
+        </section>
+        <p class="sample-caption">保留同一山形，重新渲染深青地色和月雾；暖朱砂仍指向主要操作。</p>
+      </article>
+    </section>
+    <footer class="studio-footer"><p>本轮审核：云雾、墨尘与温和过渡的强度和节奏。</p><p>动态样板。山形不动，后台与遮挡时暂停；演示输入不保存、不上传，此页不连接业务数据。</p><a href="SPEC.md">查看设计说明</a> · <a href="PROMPTS.md">查看素材提示词</a></footer>
+  </main>
+  <dialog id="demo-dialog" aria-labelledby="dialog-title">
+    <form method="dialog" class="dialog-shell">
+      <div class="dialog-head"><span>样板预览 · 演示数据</span><button class="close-button" value="close" aria-label="关闭预览">×</button></div>
+      <h2 id="dialog-title"></h2>
+      <div id="dialog-body"></div>
+      <button class="primary-button" value="done">返回首页样板</button>
+    </form>
+  </dialog>
+</body>
+</html>
