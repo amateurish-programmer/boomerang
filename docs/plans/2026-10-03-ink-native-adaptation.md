@@ -108,3 +108,15 @@ capture_adb() {
 - [ ] Add CI artifact raw device result paths as a fallback for an interrupted copy; avoid collecting source credentials/entire runner files. No framework/action/dependency upgrade.
 - [ ] Validate `bash -n scripts/test-device.sh`, `git diff --check`, inspect exact workflow paths. Source-only validation does not prove emulator diagnosis; controller runs final matrix and reads raw failures.
 - [ ] Signed semantic commit explicit files, per-file table, report task-3-report.md. No worker adb/emulator/phone/cloud operations or reviewers.
+
+### Task 4: Isolate API35 emulator graphics compatibility
+
+**Reason:** Corrected d18e4ee matrix37087125751: API33 complete pass, API26 all17 native motion tests pass with two legacy system-panel failures; API35 again stops after three complete results. Its last lifecycle log reaches RESUMED before losing the guest and its console port5554 refuses connection during cleanup. No app exception or host OOM proof. Emulator37.2.12 uses SwiftShader Vulkan; official Android troubleshooting supports disabling Vulkan for graphics compatibility. Treat this as an isolated CI renderer hypothesis, not a proved application root cause.
+
+**File:** .github/workflows/ci.yml only. Preserve app/test source, assertions, APK versions, action/dependency versions, matrix, scripts, report paths, timeout and acceptance gates.
+
+- [ ] Add explicit current default emulator options (-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim), with only API35 appending -feature -Vulkan. APIs26/33 keep their current effective options. No test skipping, retries or reduced assertions.
+- [ ] Inspect exactly one workflow hunk and git diff --check. No local adb/device/emulator/cloud or full Android rerun; controller dispatches the unchanged complete matrix and inspects renderer startup/result evidence.
+- [ ] Signed semantic commit actual identity with per-file table; report task-4-report.md. No subagents, push or broad environment/crash dump uploads.
+
+Official reference: https://developer.android.com/studio/run/emulator-troubleshooting (checked2026-10-03). Successful experiment can establish this CI renderer configuration completes acceptance; it cannot establish a precise driver crash stack or phone graphics performance.

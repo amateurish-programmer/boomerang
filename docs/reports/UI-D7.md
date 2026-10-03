@@ -38,6 +38,12 @@ API26/33栈证实专项夹具有三个错误：STARTED状态查询不可见Compo
 
 修复后本地规定验证BUILD SUCCESSFUL（4分14秒），105项JVM、0失败/错误/跳过，Lint0错误/22既有警告，Debug及测试APK构建通过，差异检查通过。四项精确复审与修复源码的完整设备矩阵仍待结果，不把本地编译记为专项17项运行成功。
 
+后续四项精确复审均确认源码已解决、无新重要问题。[修复矩阵37087125751](https://github.com/amateurish-programmer/boomerang/actions/runs/37087125751)使用d18e4ee（应用源码4b29bc4）：contracts/Android通过，API33主批次78项全部通过，17项动效专项实际执行通过；单独权限批次另列。API26为80项/2失败，17项动效专项及两个系统通知用例均通过，剩余原用例是键盘下保存按钮可见与Downloads选择后返回应用等待；未删除或放宽断言。不能将本轮API26整体记为通过。
+
+API35再次仅收到3项完整结果，在生命周期用例启动后消失。新UTP留存该用例的部分logcat，末尾到Activity RESUMED，未显示应用异常；清理时模拟器控制端口5554 Connection refused，说明模拟器进程/实例已丢失，但没有确定驱动崩溃栈。运行器37.2.12启动使用SwiftShader Vulkan；依据[Android官方排障](https://developer.android.com/studio/run/emulator-troubleshooting)，只对API35增加关闭Vulkan的启动参数作单变量对照，保留应用、测试、动作版本及矩阵。该调整是CI图形兼容假设；待实际重跑，不把它当成已证明的业务修复或手机性能结果。
+
+CI对照提交 `b34aae75f9b6bb2e7d34ab58a62541d95d84e173`仅增加一个启动参数行：原默认参数显式保留，只有API35附加-feature -Vulkan。独立规范/质量审查通过，无新问题；实际身份SSH签名已用已配置公钥在本机验证，GitHub对公钥仍显示unknown_key。源码4b29bc4与全部测试保持原样。阶段改动已建立[草稿PR1](https://github.com/amateurish-programmer/boomerang/pull/1)，完整设备验收之前不合并/发布。私有候选构建可并行准备，但完整矩阵及视觉通过以前不安装到手机。
+
 先行[API35 CI37082606430](https://github.com/amateurish-programmer/boomerang/actions/runs/37082606430)使用7bdd1ec，contracts/Android成功；设备主批次预期61项，到第53项出现旧PendingIntent用例失败，仅收到52项完整结果。Gradle失败页的栈为空，随后ADB后处理停滞；新版提交使工作流最终cancelled。这是实际失败/不完整运行，不能记作仅例行取消或设备通过。现有HTML/日志已下载保留，根因未确认；新增有界ADB采集与原始UTP结果留存后复现，再决定修复。没有基于猜测改通知路由或放宽原测试。
 
 ## 手机升级前基线
