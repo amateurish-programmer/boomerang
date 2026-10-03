@@ -191,6 +191,7 @@ private data class InkDust(val x: Float, val y: Float, val radius: Float, val ph
 internal fun InkSaveFeedback(signal: Long?, consume: (Long) -> Unit, mode: InkMotionMode, eligible: Boolean, modifier: Modifier = Modifier) {
     var receipt by remember { mutableStateOf<Long?>(null) }
     var progress by remember { mutableFloatStateOf(1f) }
+    var feedbackActive by remember { mutableStateOf(false) }
     val latestConsume by rememberUpdatedState(consume)
     val color = MaterialTheme.colorScheme.primary
     val paint = remember(color) { Paint().apply { this.color = color } }
@@ -209,22 +210,24 @@ internal fun InkSaveFeedback(signal: Long?, consume: (Long) -> Unit, mode: InkMo
     LaunchedEffect(activeReceipt, eligible, mode) {
         if (activeReceipt == null || !eligible || mode == InkMotionMode.OFF) {
             progress = 1f
+            feedbackActive = false
             if (receipt == activeReceipt) receipt = null
             return@LaunchedEffect
         }
         var elapsed = 0L
         val duration = if (mode == InkMotionMode.FULL) 450f else 180f
         progress = 0f
+        feedbackActive = true
         try { inkFrames { dt ->
             elapsed += dt
             progress = (elapsed / duration).coerceAtMost(1f)
             elapsed < duration
-        } } finally { progress = 1f }
+        } } finally { progress = 1f; feedbackActive = false }
         // Cancellation leaves a replacement receipt (or a mode restart) for the next effect.
         if (receipt == activeReceipt) receipt = null
     }
     Canvas(modifier.testTag("ink_save_feedback").semantics {
-        this[InkFeedbackActiveKey] = eligible && progress < 1f && mode != InkMotionMode.OFF
+        this[InkFeedbackActiveKey] = eligible && feedbackActive && mode != InkMotionMode.OFF
     }) {
         if (eligible && progress < 1f && mode != InkMotionMode.OFF) {
             val p = progress
